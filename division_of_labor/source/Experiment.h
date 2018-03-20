@@ -9,6 +9,7 @@
 #include <sys/stat.h>
 #include <algorithm>
 #include <functional>
+#include <deque>
 
 #include "base/Ptr.h"
 #include "base/vector.h"
@@ -30,9 +31,8 @@
 #include "SGPDeme.h"
 #include "TaskSet.h"
 
-// TODO's:
-// [ ] ActivateFacing instruction
-// [ ] Submit function
+// TODO: ActivateFacing instruction
+// TODO: Submit function
 
 constexpr size_t RUN_ID__EXP = 0;
 constexpr size_t RUN_ID__ANALYSIS = 1;
@@ -50,6 +50,7 @@ constexpr size_t TRAIT_ID__LAST_TASK = 1;
 constexpr size_t TRAIT_ID__DEME_ID = 2;
 constexpr size_t TRAIT_ID__UID = 3;
 constexpr size_t TRAIT_ID__DIR = 4;
+constexpr size_t TRAIT_ID__ROLE_ID = 5;
 
 
 /// Class to manage ALIFE2018 changing environment (w/logic 9) experiments.
@@ -90,7 +91,6 @@ public:
 
   };
 
-  // TODO: switch over to DOLDeme
   /// Wrapper around SGPDeme that includes useful propagule/activation functions.
   class DOLDeme : public SGPDeme {
   public:
@@ -124,7 +124,8 @@ public:
         size_t dir = 0;
         while (prop_cnt < prop_size) {
           if (!IsActive(hw_id)) {
-            Activate(hw_id); prop_cnt += 1;
+            // Activate(hw_id); 
+            prop_cnt += 1;
             on_propagule_activate_sig.Trigger(grid[hw_id]);
           } else {
             size_t r_dir = (dir + 1) % SGPDeme::NUM_DIRS;
@@ -140,7 +141,7 @@ public:
         // We need to activate a number of hardwares equal to DEME_PROP_SIZE
         emp::Shuffle(*random, schedule);
         for (size_t i = 0; i < prop_size; ++i) {
-          Activate(schedule[i]);
+          // Activate(schedule[i]);
           on_propagule_activate_sig.Trigger(grid[schedule[i]]);
         }
       }
@@ -148,8 +149,8 @@ public:
 
     void PrintActive(std::ostream & os=std::cout) {
       os << "-- Deme Active/Inactive --\n";
-      for (size_t x = 0; x < width; ++x) {
-        for (size_t y = 0; y < height; ++y) {
+      for (size_t y = 0; y < height; ++y) {
+        for (size_t x = 0; x < width; ++x) {
           os << (int)IsActive(GetID(x,y)) << " ";
         } os << "\n";
       }
@@ -204,6 +205,9 @@ protected:
   size_t DEME_HEIGHT;
   size_t PROPAGULE_SIZE;
   bool PROPAGULE_CLUMPY;
+  bool ANY_TIME_ACTIVATION;
+  bool TAG_BASED_ACTIVATION;
+  size_t INBOX_CAPACITY;
   size_t TOURNAMENT_SIZE;
   size_t SELECTION_METHOD;
   size_t ELITE_SELECT__ELITE_CNT;
@@ -212,6 +216,8 @@ protected:
   size_t SGP_PROG_MAX_FUNC_LEN;
   size_t SGP_PROG_MIN_FUNC_LEN;
   size_t SGP_PROG_MAX_TOTAL_LEN;
+  bool SGP_HW_EVENT_DRIVEN;
+  bool SGP_HW_FORK_ON_MSG;
   size_t SGP_HW_MAX_CORES;
   size_t SGP_HW_MAX_CALL_DEPTH;
   double SGP_HW_MIN_BIND_THRESH;
@@ -236,6 +242,9 @@ protected:
   emp::Ptr<inst_lib_t> inst_lib;
   emp::Ptr<event_lib_t> event_lib;
   emp::Ptr<DOLDeme> eval_deme;
+  
+  using inbox_t = std::deque<event_t>;
+  emp::vector<inbox_t> inboxes;
 
   using taskset_t = TaskSet<std::array<task_io_t,MAX_TASK_NUM_INPUTS>,task_io_t>;
   taskset_t task_set;
@@ -262,7 +271,35 @@ protected:
   // Agent signals.
   emp::Signal<void(Agent &)> begin_agent_eval_sig;
   emp::Signal<void(Agent &)> record_cur_phenotype_sig;
+  emp::Signal<void(size_t, const tag_t &, const memory_t &)> on_activate_sig; 
 
+  void ResetInboxes() {
+    for (size_t i = 0; i < inboxes.size(); ++i) inboxes[i].clear();
+  }
+
+  inbox_t & GetInbox(size_t id) {
+    emp_assert(id < inboxes.size());
+    return inboxes[id];
+  }
+
+  bool InboxFull(size_t id) const { 
+    emp_assert(id < inboxes.size());
+    return inboxes[id].size() >= INBOX_CAPACITY; 
+  }
+
+  bool InboxEmpty(size_t id) const {
+    emp_assert(id < inboxes.size());
+    return (bool)inboxes[id].size();
+  }
+
+  // Deliver message (event) to specified inbox. 
+  // Make room by clearing out old messages (back of deque). 
+  void DeliverToInbox(size_t id, const event_t & event) {
+    emp_assert(id < inboxes.size());
+    while (InboxFull(id)) inboxes[id].pop_back();
+    inboxes[id].emplace_front(event);
+  }
+  
   size_t GetCacheIndex(size_t agent_id, size_t trial_id) {
     return (agent_id * TRIAL_CNT) + trial_id;
   }
@@ -276,11 +313,42 @@ protected:
     record_cur_phenotype_sig.Trigger(agent); // TODO: might not need this!
   }
 
-  
+  /// Test function.
+  /// Exists to test features as I add them.
+  void Test() {
+    std::cout << "Running tests!" << std::endl;
+    // Test propragule activation.
+    // 1) Load an ancestor program.
+    do_pop_init_sig.Trigger();
+    Agent & agent = world->GetOrg(0);
+    std::cout << "---- TEST PROGRAM ----" << std::endl;
+    agent.GetGenome().PrintProgramFull();
+    std::cout << "----------------------" << std::endl;
+
+    agent.SetID(0);
+    eval_deme->SetProgram(agent.GetGenome());
+    agent_phen_cache[0].Reset();
+    std::cout << "Before begin-agent-eval signal!" << std::endl;
+    eval_deme->PrintState();
+    begin_agent_eval_sig.Trigger(agent);
+    std::cout << "Post begin-agent-eval signal!" << std::endl;
+    eval_deme->PrintActive();
+    eval_deme->PrintState();
+    std::cout << "------ RUNNING! ------" << std::endl;
+    for (eval_time = 0; eval_time < EVAL_TIME; ++eval_time) {
+      eval_deme->SingleAdvance();
+      std::cout << "=========================== TIME: " << eval_time << " ===========================" << std::endl;
+      eval_deme->PrintActive();
+      eval_deme->PrintState();
+    }
+    std::cout << "DONE EVALUATING DEME" << std::endl;
+    exit(-1);
+  }
 
 public:
   Experiment(const DOLConfig & config)
-    : DEME_SIZE(0), input_load_id(0), update(0),
+    : DEME_SIZE(0), inboxes(0),
+      input_load_id(0), update(0),
       eval_time(0), dom_agent_id(0), propagule_start_tag()
   {
     RUN_MODE = config.RUN_MODE();
@@ -293,6 +361,9 @@ public:
     DEME_HEIGHT = config.DEME_HEIGHT();
     PROPAGULE_SIZE = config.PROPAGULE_SIZE();
     PROPAGULE_CLUMPY = config.PROPAGULE_CLUMPY();
+    ANY_TIME_ACTIVATION = config.ANY_TIME_ACTIVATION();
+    TAG_BASED_ACTIVATION = config.TAG_BASED_ACTIVATION();
+    INBOX_CAPACITY = config.INBOX_CAPACITY();
     ANCESTOR_FPATH = config.ANCESTOR_FPATH();
     TOURNAMENT_SIZE = config.TOURNAMENT_SIZE();
     SELECTION_METHOD = config.SELECTION_METHOD();
@@ -302,6 +373,8 @@ public:
     SGP_PROG_MAX_FUNC_LEN = config.SGP_PROG_MAX_FUNC_LEN();
     SGP_PROG_MIN_FUNC_LEN = config.SGP_PROG_MIN_FUNC_LEN();
     SGP_PROG_MAX_TOTAL_LEN = config.SGP_PROG_MAX_TOTAL_LEN();
+    SGP_HW_EVENT_DRIVEN = config.SGP_HW_EVENT_DRIVEN();
+    SGP_HW_FORK_ON_MSG = config.SGP_HW_FORK_ON_MSG();
     SGP_HW_MAX_CORES = config.SGP_HW_MAX_CORES();
     SGP_HW_MAX_CALL_DEPTH = config.SGP_HW_MAX_CALL_DEPTH();
     SGP_HW_MIN_BIND_THRESH = config.SGP_HW_MIN_BIND_THRESH();
@@ -358,7 +431,7 @@ public:
         Config_Analysis();
         break;
     }
-
+    Test();
   }
 
   void Run() {
@@ -398,14 +471,38 @@ public:
   void InitPopulation_FromAncestorFile();
 
   // Instructions
+  // (execution control)
   static void Inst_Fork(hardware_t & hw, const inst_t & inst);
-  static void Inst_Nand(hardware_t & hw, const inst_t & inst);
   static void Inst_Terminate(hardware_t & hw, const inst_t & inst);
-
+  // (logic tasks)
+  static void Inst_Nand(hardware_t & hw, const inst_t & inst);
   void Inst_Load1(hardware_t & hw, const inst_t & inst);
   void Inst_Load2(hardware_t & hw, const inst_t & inst);
   void Inst_Submit(hardware_t & hw, const inst_t & inst);
-
+  // (deme)
+  //   - 'Reproduction' equivalent
+  void Inst_ActivateFacing(hardware_t & hw, const inst_t & inst);
+  //   - Orientation
+  static void Inst_RotCW(hardware_t & hw, const inst_t & inst);
+  static void Inst_RotCCW(hardware_t & hw, const inst_t & inst);
+  static void Inst_GetDir(hardware_t & hw, const inst_t & inst);
+  //   - Messaging
+  static void Inst_SendMsgFacing(hardware_t & hw, const inst_t & inst);
+  static void Inst_BroadcastMsg(hardware_t & hw, const inst_t & inst);
+  void Inst_RetrieveMsg(hardware_t & hw, const inst_t & inst);
+  //   - Roles
+  static void Inst_GetRoleID(hardware_t & hw, const inst_t & inst);
+  static void Inst_SetRoleID(hardware_t & hw, const inst_t & inst);
+  //   - Location
+  void Inst_GetLocXY(hardware_t & hw, const inst_t & inst);
+  
+  // Events
+  void EventDriven__DispatchMessage_Send(hardware_t & hw, const event_t & event);
+  void EventDriven__DispatchMessage_Broadcast(hardware_t & hw, const event_t & event);
+  void Imperative__DispatchMessage_Send(hardware_t & hw, const event_t & event);
+  void Imperative__DispatchMessage_Broadcast(hardware_t & hw, const event_t & event);
+  static void HandleEvent__Message_Forking(hardware_t & hw, const event_t & event);
+  static void HandleEvent__Message_NonForking(hardware_t & hw, const event_t & event);
 };
 
 // --- Instruction implementations ---
@@ -461,6 +558,104 @@ void Experiment::Inst_Submit(hardware_t & hw, const inst_t & inst) {
   }
   // task_set.Submit((task_io_t)state.GetLocal(inst.args[0]), eval_time);
 }
+
+void Experiment::Inst_ActivateFacing(hardware_t & hw, const inst_t & inst) {
+  state_t & state = hw.GetCurState();
+  const size_t loc_id = (size_t)hw.GetTrait(TRAIT_ID__DEME_ID);
+  const size_t dir = (size_t)hw.GetTrait(TRAIT_ID__DIR);
+  const size_t facing_id = eval_deme->GetNeighborID(loc_id, dir);
+  on_activate_sig.Trigger(facing_id, inst.affinity, state.output_mem);
+}
+
+void Experiment::Inst_RotCW(hardware_t & hw, const inst_t & inst) {
+  hw.SetTrait(TRAIT_ID__DIR, emp::Mod(hw.GetTrait(TRAIT_ID__DIR) - 1, DOLDeme::NUM_DIRS));
+}
+
+void Experiment::Inst_RotCCW(hardware_t & hw, const inst_t & inst) {
+  hw.SetTrait(TRAIT_ID__DIR, emp::Mod(hw.GetTrait(TRAIT_ID__DIR) + 1, DOLDeme::NUM_DIRS));
+}
+
+void Experiment::Inst_GetDir(hardware_t & hw, const inst_t & inst) {
+  state_t & state = hw.GetCurState();
+  state.SetLocal(inst.args[0], hw.GetTrait(TRAIT_ID__DIR));
+}
+
+void Experiment::Inst_SendMsgFacing(hardware_t & hw, const inst_t & inst) {
+  state_t & state = hw.GetCurState();
+  hw.TriggerEvent("SendMessage", inst.affinity, state.output_mem);
+}
+
+void Experiment::Inst_BroadcastMsg(hardware_t & hw, const inst_t & inst) {
+  state_t & state = hw.GetCurState();
+  hw.TriggerEvent("BroadcastMessage", inst.affinity, state.output_mem);
+}
+
+void Experiment::Inst_RetrieveMsg(hardware_t & hw, const inst_t & inst) {
+  const size_t loc_id = (size_t)hw.GetTrait(TRAIT_ID__DEME_ID);
+  if (!InboxEmpty(loc_id)) {
+    inbox_t & inbox = GetInbox(loc_id);
+    hw.HandleEvent(inbox.front());
+    inbox.pop_front(); // Remove!
+  }
+}
+
+void Experiment::Inst_GetRoleID(hardware_t & hw, const inst_t & inst) {
+  state_t & state = hw.GetCurState();
+  state.SetLocal(inst.args[0], hw.GetTrait(TRAIT_ID__ROLE_ID));
+}
+
+void Experiment::Inst_SetRoleID(hardware_t & hw, const inst_t & inst) {
+  state_t & state = hw.GetCurState();
+  hw.SetTrait(TRAIT_ID__ROLE_ID, state.GetLocal(inst.args[0]));
+}
+
+void Experiment::Inst_GetLocXY(hardware_t & hw, const inst_t & inst) {
+  state_t & state = hw.GetCurState();
+  const size_t x = eval_deme->GetLocX((size_t)hw.GetTrait(TRAIT_ID__DEME_ID));
+  const size_t y = eval_deme->GetLocY((size_t)hw.GetTrait(TRAIT_ID__DEME_ID));
+  state.SetLocal(inst.args[0], x);
+  state.SetLocal(inst.args[1], y);
+}
+
+void Experiment::EventDriven__DispatchMessage_Send(hardware_t & hw, const event_t & event) {
+  const size_t facing_id = eval_deme->GetNeighborID((size_t)hw.GetTrait(TRAIT_ID__DEME_ID), (size_t)hw.GetTrait(TRAIT_ID__DIR));
+  hardware_t & rHW = eval_deme->GetHardware(facing_id);
+  rHW.QueueEvent(event);
+}
+
+void Experiment::EventDriven__DispatchMessage_Broadcast(hardware_t & hw, const event_t & event) {
+  const size_t loc_id = (size_t)hw.GetTrait(TRAIT_ID__DEME_ID);
+  eval_deme->GetHardware(eval_deme->GetNeighborID(loc_id, DOLDeme::DIR_UP)).QueueEvent(event);  
+  eval_deme->GetHardware(eval_deme->GetNeighborID(loc_id, DOLDeme::DIR_DOWN)).QueueEvent(event);
+  eval_deme->GetHardware(eval_deme->GetNeighborID(loc_id, DOLDeme::DIR_LEFT)).QueueEvent(event);
+  eval_deme->GetHardware(eval_deme->GetNeighborID(loc_id, DOLDeme::DIR_RIGHT)).QueueEvent(event);  
+}
+
+void Experiment::Imperative__DispatchMessage_Send(hardware_t & hw, const event_t & event) {
+  const size_t facing_id = eval_deme->GetNeighborID(hw.GetTrait(TRAIT_ID__DEME_ID), hw.GetTrait(TRAIT_ID__DIR));
+  DeliverToInbox(facing_id, event);
+}
+
+void Experiment::Imperative__DispatchMessage_Broadcast(hardware_t & hw, const event_t & event) {
+  const size_t loc_id = (size_t)hw.GetTrait(TRAIT_ID__DEME_ID);
+  DeliverToInbox(eval_deme->GetNeighborID(loc_id, DOLDeme::DIR_UP), event);
+  DeliverToInbox(eval_deme->GetNeighborID(loc_id, DOLDeme::DIR_DOWN), event);
+  DeliverToInbox(eval_deme->GetNeighborID(loc_id, DOLDeme::DIR_LEFT), event);
+  DeliverToInbox(eval_deme->GetNeighborID(loc_id, DOLDeme::DIR_RIGHT), event);
+}
+
+void Experiment::HandleEvent__Message_Forking(hardware_t & hw, const event_t & event) {
+  // Spawn a new core.
+  hw.SpawnCore(event.affinity, hw.GetMinBindThresh(), event.msg);
+}
+
+void Experiment::HandleEvent__Message_NonForking(hardware_t & hw, const event_t & event) {
+  // Instead of spawning a new core, load event data into input buffer of current call state.
+  state_t & state = hw.GetCurState();
+  // Loop through event memory... 
+  for (auto mem : event.msg) { state.SetInput(mem.first, mem.second); }
+}
+
 
 // --- Utilities ---
 void Experiment::InitPopulation_FromAncestorFile() {
@@ -570,15 +765,25 @@ void Experiment::Config_HW() {
   inst_lib->AddInst("Nand", Inst_Nand, 3, "WM[ARG3]=~(WM[ARG1]&WM[ARG2])");
   inst_lib->AddInst("Terminate", Inst_Terminate, 0, "Kill current thread.");
 
+  // TODO: Finish adding necessary experiment-specific instructions/events
   // Add experiment-specific instructions.
   inst_lib->AddInst("Load-1", [this](hardware_t & hw, const inst_t & inst) { this->Inst_Load1(hw, inst); }, 1, "WM[ARG1] = TaskInput[LOAD_ID]; LOAD_ID++;");
   inst_lib->AddInst("Load-2", [this](hardware_t & hw, const inst_t & inst) { this->Inst_Load2(hw, inst); }, 2, "WM[ARG1] = TASKINPUT[0]; WM[ARG2] = TASKINPUT[1];");
   inst_lib->AddInst("Submit", [this](hardware_t & hw, const inst_t & inst) { this->Inst_Submit(hw, inst); }, 1, "Submit WM[ARG1] as potential task solution.");
-
-  // TODO: experiment-specific instructions/events
-  // --> Broadcast, SendMsg, Activate
-
+  // --> Broadcast, SendMsg, ActivateFacing
+  inst_lib->AddInst("ActivateFacing", [this](hardware_t & hw, const inst_t & inst) { this->Inst_ActivateFacing(hw, inst); }, 0, "Activate faced neighbor.");
+  // - Orientation instructions
+  inst_lib->AddInst("RotCW", Inst_RotCW, 0, "Rotate clockwise");
+  inst_lib->AddInst("RotCCW", Inst_RotCCW, 0, "Rotate couter-clockwise");
+  inst_lib->AddInst("GetDir", Inst_GetDir, 0, "WM[ARG1]=CURRENT DIRECTION");
+  // - Role instructions
+  inst_lib->AddInst("GetRoleID", Inst_GetRoleID, 1, "WM[ARG1]=TRAITS[ROLE_ID]");
+  inst_lib->AddInst("SetRoleID", Inst_SetRoleID, 1, "TRAITS[ROLE_ID]=WM[ARG1]");
+  // - Location instructions
+  inst_lib->AddInst("GetLocXY", [this](hardware_t & hw, const inst_t & inst) { this->Inst_GetLocXY(hw, inst); }, 2, "WM[ARG1]=LOCX, WM[ARG2]=LOCY");
+  
   // Configure evaluation hardware.
+  // TODO: config options for this! ==> Imperative vs. Event-driven versions. 
   // Make eval deme.
   eval_deme = emp::NewPtr<DOLDeme>(DEME_WIDTH, DEME_HEIGHT, random, inst_lib, event_lib);
   eval_deme->SetHardwareMinBindThresh(SGP_HW_MIN_BIND_THRESH);
@@ -591,6 +796,7 @@ void Experiment::Config_HW() {
     hw.SetTrait(TRAIT_ID__LAST_TASK, -1);
     hw.SetTrait(TRAIT_ID__UID, 0);
     hw.SetTrait(TRAIT_ID__DIR, 0);
+    hw.SetTrait(TRAIT_ID__ROLE_ID, 0);
   });
 
   eval_deme->OnHardwareAdvance([this](hardware_t & hw) {
@@ -598,9 +804,97 @@ void Experiment::Config_HW() {
   });
 
   eval_deme->OnPropaguleActivation([this](hardware_t & hw) {
-    // Spawn thread!
-    hw.SpawnCore(propagule_start_tag, 0.0);
+    // Trigger on_activate_sig
+    on_activate_sig.Trigger(hw.GetTrait(TRAIT_ID__DEME_ID), propagule_start_tag, memory_t());
   });
+
+  if (SGP_HW_FORK_ON_MSG) {
+    event_lib->AddEvent("SendMessage", HandleEvent__Message_Forking, "...");
+    event_lib->AddEvent("BroadcastMessage", HandleEvent__Message_Forking, "...");
+  } else {
+    event_lib->AddEvent("SendMessage", HandleEvent__Message_NonForking, "...");
+    event_lib->AddEvent("BroadcastMessage", HandleEvent__Message_NonForking, "...");
+  }
+
+  if (SGP_HW_EVENT_DRIVEN) { // Hardware is event-driven.
+    
+    // Configure dispatchers
+    event_lib->RegisterDispatchFun("SendMessage", [this](hardware_t & hw, const event_t & event) {
+      this->EventDriven__DispatchMessage_Send(hw, event);
+
+    });
+    event_lib->RegisterDispatchFun("BroadcastMessage", [this](hardware_t &hw, const event_t &event) {
+      this->EventDriven__DispatchMessage_Broadcast(hw, event);
+    });
+  } else { // Hardware is imperative.
+    
+    // Add retrieve message instruction to instruction set.
+    inst_lib->AddInst("RetrieveMsg", [this](hardware_t & hw, const inst_t & inst) {
+        this->Inst_RetrieveMsg(hw, inst);
+      }, 0, "Retrieve a message from message inbox.");
+    
+    // Configure dispatchers
+    event_lib->RegisterDispatchFun("SendMessage", [this](hardware_t & hw, const event_t & event) {
+      this->Imperative__DispatchMessage_Send(hw, event);
+    });
+    event_lib->RegisterDispatchFun("BroadcastMessage", [this](hardware_t &hw, const event_t &event) {
+      this->Imperative__DispatchMessage_Broadcast(hw, event);
+    });
+   
+    // Configure inboxes.
+    inboxes.resize(DEME_SIZE);
+    eval_deme->OnHardwareReset([this](hardware_t & hw) {
+      std::cout << "Reset the inboxi!" << std::endl;
+      this->ResetInboxes();
+    });
+  }
+
+  // What happens on activate signal?
+  if (TAG_BASED_ACTIVATION && ANY_TIME_ACTIVATION) {
+    // Tag-based, anytime activation.
+    on_activate_sig.AddAction([this](size_t activate_id, const tag_t & activate_tag, const memory_t & in_mem) {
+      // Tell eval deme that this agent is active. 
+      eval_deme->Activate(activate_id);
+      // Give agent something to do... 
+      hardware_t & hw = eval_deme->GetHardware(activate_id);
+      hw.SpawnCore(activate_tag, 0.0, in_mem, false);
+    });
+  } else if (TAG_BASED_ACTIVATION && !ANY_TIME_ACTIVATION) {
+    // Tag-based, 1-time activation.
+    on_activate_sig.AddAction([this](size_t activate_id, const tag_t & activate_tag, const memory_t & in_mem) {
+      if (!eval_deme->IsActive(activate_id)) {
+        // Tell eval deme that this agent is active. 
+        eval_deme->Activate(activate_id);
+        // Give agent something to do... 
+        hardware_t & hw = eval_deme->GetHardware(activate_id);
+        hw.SpawnCore(activate_tag, 0.0, in_mem, false);
+      }
+    });
+  } else if (!TAG_BASED_ACTIVATION && ANY_TIME_ACTIVATION) {
+    // Not tag-based, any-time activation.
+    on_activate_sig.AddAction([this](size_t activate_id, const tag_t & activate_tag, const memory_t & in_mem) {
+      // Tell eval deme that this agent is active. 
+      eval_deme->Activate(activate_id);
+      // Give agent something to do... 
+      hardware_t & hw = eval_deme->GetHardware(activate_id);
+      hw.SpawnCore(0, in_mem, false);
+    });
+  } else if (!TAG_BASED_ACTIVATION && !ANY_TIME_ACTIVATION) {
+    // Not tag-based, 1-time activation.
+    on_activate_sig.AddAction([this](size_t activate_id, const tag_t &activate_tag, const memory_t &in_mem) {
+      if (!eval_deme->IsActive(activate_id)) {      
+        // Tell eval deme that this agent is active.
+        eval_deme->Activate(activate_id);
+        // Give agent something to do...
+        hardware_t &hw = eval_deme->GetHardware(activate_id);
+        hw.SpawnCore(0, in_mem, false);
+      }
+    });
+  } else {
+    // Should never get here!
+    std::cout << "Not sure what you want me to don on activate signal!" << std::endl;
+    exit(-1);
+  }
 }
 
 void Experiment::Config_Tasks() {

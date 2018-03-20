@@ -65,10 +65,10 @@ protected:
     int facing_x = (int)GetLocX(id);
     int facing_y = (int)GetLocY(id);
     switch(dir) {
-      case DIR_UP:    facing_y = emp::Mod(facing_y + 1, (int)height); break;
+      case DIR_UP:    facing_y = emp::Mod(facing_y - 1, (int)height); break;
       case DIR_LEFT:  facing_x = emp::Mod(facing_x - 1, (int)width);  break;
       case DIR_RIGHT: facing_x = emp::Mod(facing_x + 1, (int)width);  break;
-      case DIR_DOWN:  facing_y = emp::Mod(facing_y - 1, (int)height); break;
+      case DIR_DOWN:  facing_y = emp::Mod(facing_y + 1, (int)height); break;
       default:
         emp_assert(false, "Bad direction!"); // TODO: put an assert here.
         break;
