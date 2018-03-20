@@ -200,6 +200,59 @@ public:
 
     double GetScore() const { return score; }
 
+    double CalcMutInfo() {
+      if (task_total == 0) return 0.0;
+
+      // I(N,M) = SUM{p_ij * ln(p_ij/(p_i*p_j))}
+      const size_t deme_size = indiv_total_tasks_cnts.size();
+      const size_t task_cnt = deme_tasks_cnts.size();
+
+      emp::vector<double> Pij(deme_size * task_cnt, 0);
+      emp::vector<double> Pj(task_cnt, 0);
+      double Pi = 0.0;
+      emp::vector<size_t> workers;
+      emp::vector<size_t> tasks_done;
+
+      // Calculate Pij
+      for (size_t tID = 0; tID < task_cnt; ++tID) {
+        if (deme_tasks_cnts[tID] > 0) tasks_done.emplace_back(tID);
+      }
+      for (size_t hwID = 0; hwID < deme_size; ++hwID) {
+        if (indiv_total_tasks_cnts[hwID] > 0) {
+          workers.emplace_back(hwID);
+          for (size_t ti = 0; ti < tasks_done.size(); ++ti) {
+            const size_t j = tasks_done[ti];
+            Pij[IndivTaskIndex(hwID, j)] = ((double)indiv_tasks_cnts[IndivTaskIndex(hwID, j)])/((double)indiv_total_tasks_cnts[hwID]);
+          }          
+        }
+      } 
+      for (size_t i = 0; i < Pij.size(); ++i) Pij[i] /= workers.size(); // Normalize by number of agents that did work.
+
+      // Calculate Pi
+      emp_assert(workers.size());
+      Pi = 1.0/((double)workers.size()); // Same for all agents. 
+      
+      // Calculate Pj
+      for (size_t ti = 0; ti < tasks_done.size(); ++ti) {
+        const size_t j = tasks_done[ti];
+        Pj[j] = ((double)deme_tasks_cnts[j])/((double)task_total);
+      }
+
+      // Calculate mutual information
+      double I = 0.0;
+      for (size_t ti = 0; ti < tasks_done.size(); ++ti) {
+        const size_t j = tasks_done[ti];
+        for (size_t wi = 0; wi < workers.size(); ++wi) {
+          const size_t i = workers[wi];
+          const double pij = Pij[IndivTaskIndex(i,j)];
+          const double pj = Pj[j];
+          emp_assert(Pj[j] > 0);
+          I += (pij > 0) ? pij * emp::Ln(pij/(Pi*pj)) : 0;
+        }
+      }
+      return I;
+    }
+
     void Reset() {
       score = 0;
       task_total = 0;
@@ -439,6 +492,28 @@ protected:
     }
     std::cout << "DONE EVALUATING DEME" << std::endl;
 
+
+    // Print Phenotype info
+    std::cout << "PHENOTYPE INFORMATION" << std::endl;
+    std::cout << "Score: " << phen.score << std::endl;
+    std::cout << "Task total: " << phen.task_total << std::endl;    
+    std::cout << "Task switch totals: " << phen.total_task_switches << std::endl;
+    std::cout << "Deme task cnts: [";
+    for (size_t i = 0; i < task_set.GetSize(); ++i) {
+      std::cout << " " << task_set.GetName(i) << ":" << phen.GetDemeTaskCnt(i);
+    } std::cout << "]" << std::endl;
+    std::cout << "Individual informations: " << std::endl;
+    for (size_t hwID = 0; hwID < eval_deme->GetSize(); ++hwID) {
+      std::cout << " -- " << hwID << " -- " << std::endl;
+      std::cout << "  Total tasks: " << phen.GetIndivTotalTaskCnt(hwID) << std::endl;
+      std::cout << "  Task switches: " << phen.GetIndivTaskSwitches(hwID) << std::endl;
+      std::cout << "  Task cnts: [";
+      for (size_t i = 0; i < task_set.GetSize(); ++i) {
+        std::cout << " " << task_set.GetName(i) << ":" << phen.GetIndivTaskCnt(hwID, i);
+      } std::cout << "]" << std::endl;
+    }
+    std::cout << "Mutual information: \n" << phen.CalcMutInfo() << std::endl;
+
     // Test tasks.
     // size_t trials_with_collisions = 0;
     // bool collision = false;
@@ -536,7 +611,7 @@ public:
     agent_phen_cache.resize(POP_SIZE);
     for (size_t i = 0; i < agent_phen_cache.size(); ++i) {
       Phenotype & phen = agent_phen_cache[i];
-      phen.deme_tasks_cnts.resize(DEME_SIZE);
+      phen.deme_tasks_cnts.resize(TASK_CNT);
       phen.indiv_tasks_cnts.resize(DEME_SIZE*TASK_CNT);
       phen.indiv_total_tasks_cnts.resize(DEME_SIZE);
       phen.task_switches.resize(DEME_SIZE);
@@ -603,6 +678,8 @@ public:
 
   void InitPopulation_FromAncestorFile();
   void Snapshot_SingleFile(size_t update);
+
+  emp::DataFile & AddDominantFile(const std::string & fpath="dominant.csv");
 
   // Instructions
   // (execution control)
@@ -824,6 +901,54 @@ void Experiment::Snapshot_SingleFile(size_t update) {
   prog_ofstream.close();
 }
 
+emp::DataFile & Experiment::AddDominantFile(const std::string & fpath) {
+  auto & file = world->SetupFile(fpath);
+
+  std::function<size_t(void)> get_update = [this](){ return world->GetUpdate(); };
+  file.AddFun(get_update, "update", "Update");
+
+  std::function<double(void)> get_score = [this]() {
+    Phenotype & phen = agent_phen_cache[dom_agent_id];
+    return phen.GetScore();
+  };
+  file.AddFun(get_score, "score", "Dominant score");
+
+  std::function<double(void)> get_mut_info = [this]() {
+    Phenotype & phen = agent_phen_cache[dom_agent_id];
+    return phen.CalcMutInfo();
+  };
+  file.AddFun(get_mut_info, "mutual_information", "Shannon mutual information (division of labor)");
+
+  /*
+  indiv_tasks_cnts
+  indiv_total_tasks_cnts
+  task_switches
+  */
+  std::function<double(void)> get_deme_task_total = [this]() {
+    Phenotype & phen = agent_phen_cache[dom_agent_id];
+    return phen.GetDemeTotalTaskCnt();
+  };
+  file.AddFun(get_deme_task_total, "deme_total_tasks", "Total count of tasks done by deme");
+
+  std::function<double(void)> get_deme_switch_total = [this]() {
+    Phenotype & phen = agent_phen_cache[dom_agent_id];
+    return phen.GetDemeTaskSwitches();
+  };
+  file.AddFun(get_deme_switch_total, "deme_total_switches", "Total count of task switches done by deme");
+
+  // Deme totals by task. 
+  for (size_t taskID = 0; taskID < task_set.GetSize(); ++taskID) {
+    std::function<double(void)> get_task_total = [this, taskID]() {
+      Phenotype & phen = agent_phen_cache[dom_agent_id];
+      return phen.GetDemeTaskCnt(taskID);
+    };
+    file.AddFun(get_task_total, "deme_"+task_set.GetName(taskID)+"_total", "Total count of specified task.");
+  }
+  file.PrintHeaderKeys();
+  return file;
+
+}
+
 // --- Configuration/setup function implementations ---
 void Experiment::Config_Run() {
   // Make data directory.
@@ -850,7 +975,7 @@ void Experiment::Config_Run() {
     sys_file.SetTimingRepeat(SYSTEMATICS_INTERVAL);
     auto & fit_file = world->SetupFitnessFile(DATA_DIRECTORY + "fitness.csv");
     fit_file.SetTimingRepeat(FITNESS_INTERVAL);
-    // TODO: add useful dominant phenotype tracking
+    this->AddDominantFile(DATA_DIRECTORY+"dominant.csv").SetTimingRepeat(SYSTEMATICS_INTERVAL);
     do_pop_init_sig.Trigger();
   });
 
@@ -929,7 +1054,6 @@ void Experiment::Config_HW() {
   inst_lib->AddInst("Nand", Inst_Nand, 3, "WM[ARG3]=~(WM[ARG1]&WM[ARG2])");
   inst_lib->AddInst("Terminate", Inst_Terminate, 0, "Kill current thread.");
 
-  // TODO: Finish adding necessary experiment-specific instructions/events
   // Add experiment-specific instructions.
   inst_lib->AddInst("Load-1", [this](hardware_t & hw, const inst_t & inst) { this->Inst_Load1(hw, inst); }, 1, "WM[ARG1] = TaskInput[LOAD_ID]; LOAD_ID++;");
   inst_lib->AddInst("Load-2", [this](hardware_t & hw, const inst_t & inst) { this->Inst_Load2(hw, inst); }, 2, "WM[ARG1] = TASKINPUT[0]; WM[ARG2] = TASKINPUT[1];");
@@ -950,14 +1074,12 @@ void Experiment::Config_HW() {
   inst_lib->AddInst("BroadcastMsg", Inst_BroadcastMsg, 0, "Broadcast output memory as message event.", emp::ScopeType::BASIC, 0, {"affinity"});
 
   // Configure evaluation hardware.
-  // TODO: config options for this! ==> Imperative vs. Event-driven versions. 
   // Make eval deme.
   eval_deme = emp::NewPtr<DOLDeme>(DEME_WIDTH, DEME_HEIGHT, random, inst_lib, event_lib);
   eval_deme->SetHardwareMinBindThresh(SGP_HW_MIN_BIND_THRESH);
   eval_deme->SetHardwareMaxCores(SGP_HW_MAX_CORES);
   eval_deme->SetHardwareMaxCallDepth(SGP_HW_MAX_CALL_DEPTH);
 
-  // TODO: what happens on hardware reset (in eval deme)
   eval_deme->OnHardwareReset([this](hardware_t & hw) {
     hw.SetTrait(TRAIT_ID__ACTIVE, 0);
     hw.SetTrait(TRAIT_ID__LAST_TASK, NO_TASK);
