@@ -48,8 +48,12 @@ protected:
   emp::vector<Task> task_lib;
   std::map<std::string, size_t> name_map;
 
+  bool sollision;                                 ///< Solution collision?
+  std::unordered_set<task_output_t> solution_set; ///< Used for detecting collisions between solutions.
+
+
 public:
-  TaskSet() { ; }
+  TaskSet() : sollision(false) { ; }
   ~TaskSet() { ; }
 
   const std::string & GetName(size_t id) const { return task_lib[id].name; }
@@ -65,6 +69,8 @@ public:
 
   bool IsTask(const std::string name) const { return emp::Has(name_map, name); }
 
+  bool IsCollision() const { return sollision; }
+
   void AddTask(const std::string & name,
                const gen_sol_fun_t & gen_sols,
                const std::string & desc = "")
@@ -77,9 +83,18 @@ public:
 
   /// Set inputs. Reset everything.
   void SetInputs(const task_input_t & inputs) {
+    sollision = false;
+    solution_set.clear();
     for (size_t i = 0; i < task_lib.size(); ++i) {
       task_lib[i].solutions.resize(0);
       task_lib[i].generate_solutions(task_lib[i], inputs);
+      for (size_t s = 0; s < task_lib[i].solutions.size(); ++s) {
+        if (emp::Has(solution_set, task_lib[i].solutions[s])) {
+          sollision = true;
+        } else {
+          solution_set.emplace(task_lib[i].solutions[s]);
+        }
+      }
     }
   }
 

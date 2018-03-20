@@ -10,6 +10,7 @@
 #include <algorithm>
 #include <functional>
 #include <deque>
+#include <unordered_set>
 
 #include "base/Ptr.h"
 #include "base/vector.h"
@@ -18,7 +19,6 @@
 #include "Evolve/Resource.h"
 #include "Evolve/SystematicsAnalysis.h"
 #include "Evolve/World_output.h"
-#include "games/Othello.h"
 #include "hardware/EventDrivenGP.h"
 #include "hardware/InstLib.h"
 #include "tools/BitVector.h"
@@ -30,9 +30,6 @@
 #include "dol-config.h"
 #include "SGPDeme.h"
 #include "TaskSet.h"
-
-// TODO: ActivateFacing instruction
-// TODO: Submit function
 
 constexpr size_t RUN_ID__EXP = 0;
 constexpr size_t RUN_ID__ANALYSIS = 1;
@@ -52,6 +49,7 @@ constexpr size_t TRAIT_ID__UID = 3;
 constexpr size_t TRAIT_ID__DIR = 4;
 constexpr size_t TRAIT_ID__ROLE_ID = 5;
 
+constexpr int NO_TASK = -1;
 
 /// Class to manage ALIFE2018 changing environment (w/logic 9) experiments.
 class Experiment {
@@ -99,10 +97,12 @@ public:
   protected:
 
     emp::Signal<void(hardware_t &)> on_propagule_activate_sig; // Triggered when a propagule is activated.
+    
+    size_t phen_id;
 
   public:
     DOLDeme(size_t _w, size_t _h, emp::Ptr<emp::Random> _rnd, emp::Ptr<inst_lib_t> _ilib, emp::Ptr<event_lib_t> _elib)
-    : SGPDeme(_w, _h, _rnd, _ilib, _elib)
+    : SGPDeme(_w, _h, _rnd, _ilib, _elib), phen_id(0)
     {
       for (size_t i = 0; i < grid.size(); ++i) {
         grid[i].SetTrait(TRAIT_ID__ACTIVE, 0);
@@ -115,6 +115,12 @@ public:
     bool IsActive(size_t id) const { return (bool)grid[id].GetTrait(TRAIT_ID__ACTIVE); }
     void Activate(size_t id) { grid[id].SetTrait(TRAIT_ID__ACTIVE, 1); }
     void Deactivate(size_t id) { grid[id].SetTrait(TRAIT_ID__ACTIVE, 0); }
+
+    size_t GetLastTask(size_t id) const { return (size_t)grid[id].GetTrait(TRAIT_ID__LAST_TASK); }
+    void SetLastTask(size_t id, size_t task_id) { grid[id].SetTrait(TRAIT_ID__LAST_TASK, task_id); }
+
+    size_t GetPhenID() const { return phen_id; }
+    void SetPhenID(size_t id) { phen_id = id; }
 
     void ActivateDemePropagule(size_t prop_size=1, bool clumpy=false) {
       emp_assert(prop_size <= grid.size());
@@ -163,32 +169,46 @@ public:
     emp::vector<size_t> indiv_total_tasks_cnts; ///< Total task completion broken down by individual.
     emp::vector<size_t> task_switches;          ///< Task switches broken down by individual.
     size_t task_total;
+    size_t total_task_switches;
+    
     double score;
+
     Phenotype()
       : deme_tasks_cnts(0),
         indiv_tasks_cnts(0),
         indiv_total_tasks_cnts(0),
         task_switches(0),
         task_total(0),
+        total_task_switches(0),
         score(0)
     { ; }
 
     /// Given hw id and task id, return appropriate index.
-    size_t IndivTaskIndex(size_t hw_id, size_t task_id) {
-      return (hw_id*TASK_CNT) + task_id;
-    }
+    size_t IndivTaskIndex(size_t hw_id, size_t task_id) const { return (hw_id*TASK_CNT) + task_id; }
+
+    size_t GetIndivTaskCnt(size_t hw_id, size_t task_id) const { return indiv_tasks_cnts[IndivTaskIndex(hw_id, task_id)]; }
+
+    size_t GetIndivTotalTaskCnt(size_t hw_id) const { return indiv_total_tasks_cnts[hw_id]; }
+
+    size_t GetIndivTaskSwitches(size_t hw_id) const { return task_switches[hw_id]; }
+
+    size_t GetDemeTaskCnt(size_t task_id) const { return deme_tasks_cnts[task_id]; }
+
+    size_t GetDemeTotalTaskCnt() const { return task_total; }
+
+    size_t GetDemeTaskSwitches() const { return total_task_switches; }
+
+    double GetScore() const { return score; }
 
     void Reset() {
       score = 0;
       task_total = 0;
+      total_task_switches = 0;
       for (size_t i = 0; i < deme_tasks_cnts.size(); ++i) deme_tasks_cnts[i] = 0;
       for (size_t i = 0; i < indiv_tasks_cnts.size(); ++i) indiv_tasks_cnts[i] = 0;
       for (size_t i = 0; i < indiv_total_tasks_cnts.size(); ++i) indiv_total_tasks_cnts[i] = 0;
       for (size_t i = 0; i < task_switches.size(); ++i) task_switches[i] = 0;
     }
-
-    double GetScore() const { return score; }
-
   };
 
 
@@ -201,6 +221,9 @@ protected:
   size_t EVAL_TIME;
   size_t TRIAL_CNT;
   std::string ANCESTOR_FPATH;
+  double TASK_BASE_REWARD;
+  double TASK_SWITCHING_PENALTY;
+  size_t INDIV_TASK_CAP;
   size_t DEME_WIDTH;
   size_t DEME_HEIGHT;
   size_t PROPAGULE_SIZE;
@@ -248,7 +271,7 @@ protected:
 
   using taskset_t = TaskSet<std::array<task_io_t,MAX_TASK_NUM_INPUTS>,task_io_t>;
   taskset_t task_set;
-  std::array<task_io_t,MAX_TASK_NUM_INPUTS> task_inputs; ///< Current task inputs.
+  std::array<task_io_t, MAX_TASK_NUM_INPUTS> task_inputs; ///< Current task inputs.
   size_t input_load_id;
 
   size_t update;
@@ -270,7 +293,7 @@ protected:
   emp::Signal<void(size_t)> do_pop_snapshot_sig;    ///< Triggered if we should take a snapshot of the population (as defined by POP_SNAPSHOT_INTERVAL). Should call appropriate functions to take snapshot.
   // Agent signals.
   emp::Signal<void(Agent &)> begin_agent_eval_sig;
-  emp::Signal<void(Agent &)> record_cur_phenotype_sig;
+  // emp::Signal<void(Agent &)> record_cur_phenotype_sig;
   emp::Signal<void(size_t, const tag_t &, const memory_t &)> on_activate_sig; 
 
   void ResetInboxes() {
@@ -309,13 +332,50 @@ protected:
     return (agent_id * TRIAL_CNT) + trial_id;
   }
 
+  void SubmitTask(size_t hw_id, size_t task_id) {
+    // Submit and record task (TASK_ID) completion for HW_ID.
+    // reward = (BASE * SWITCH_PENALTY)*(1/(2**DEME_TASK_N))
+    Phenotype & phen = agent_phen_cache[eval_deme->GetPhenID()];
+    const size_t prev_task_cnt = phen.GetIndivTotalTaskCnt(hw_id);
+    if (prev_task_cnt < INDIV_TASK_CAP) {
+      const int last_task_id = eval_deme->GetLastTask(hw_id);
+      const bool task_switch = !(task_id == last_task_id || last_task_id == NO_TASK);
+      const double switch_penalty = (task_switch) ? TASK_SWITCHING_PENALTY : 1;
+      const double deme_task_cnt = phen.GetDemeTaskCnt(task_id);
+      const double reward = (TASK_BASE_REWARD * switch_penalty)/(emp::Pow2(deme_task_cnt));
+
+      // Update shit.
+      phen.deme_tasks_cnts[task_id]++;
+      phen.indiv_tasks_cnts[phen.IndivTaskIndex(hw_id, task_id)]++;
+      phen.indiv_total_tasks_cnts[hw_id]++;
+      phen.task_switches[hw_id] += (size_t)task_switch;
+      phen.total_task_switches += (size_t)task_switch;
+      phen.task_total++;
+      phen.score += reward;
+
+      eval_deme->SetLastTask(hw_id, task_id);
+    }
+  }
+
+  /// Guarantee no solution collisions!
+  void ResetTasks() {
+    task_inputs[0] = random->GetUInt(MIN_TASK_INPUT, MAX_TASK_INPUT);
+    task_inputs[1] = random->GetUInt(MIN_TASK_INPUT, MAX_TASK_INPUT);
+    task_set.SetInputs(task_inputs);
+    while (task_set.IsCollision()) {
+      task_inputs[0] = random->GetUInt(MIN_TASK_INPUT, MAX_TASK_INPUT);
+      task_inputs[1] = random->GetUInt(MIN_TASK_INPUT, MAX_TASK_INPUT);
+      task_set.SetInputs(task_inputs);
+    }
+  }
+
   void Evaluate(Agent & agent) {
     begin_agent_eval_sig.Trigger(agent);
     for (eval_time = 0; eval_time < EVAL_TIME; ++eval_time) {
       eval_deme->SingleAdvance();
     }
     // Record everything we want to store about trial phenotype:
-    record_cur_phenotype_sig.Trigger(agent); // TODO: might not need this!
+    // record_cur_phenotype_sig.Trigger(agent); // TODO: might not need this!
   }
 
   /// Test function.
@@ -332,7 +392,9 @@ protected:
 
     agent.SetID(0);
     eval_deme->SetProgram(agent.GetGenome());
+    eval_deme->SetPhenID(0);
     agent_phen_cache[0].Reset();
+    ResetTasks();
     std::cout << "Before begin-agent-eval signal!" << std::endl;
     eval_deme->PrintState();
     begin_agent_eval_sig.Trigger(agent);
@@ -340,18 +402,76 @@ protected:
     eval_deme->PrintActive();
     eval_deme->PrintState();
     std::cout << "------ RUNNING! ------" << std::endl;
+    Phenotype & phen = agent_phen_cache[0];
     for (eval_time = 0; eval_time < EVAL_TIME; ++eval_time) {
       eval_deme->SingleAdvance();
+      
       std::cout << "=========================== TIME: " << eval_time << " ===========================" << std::endl;
+      
       eval_deme->PrintActive();
+      
       // Print inbox sizes
       std::cout << "Inbox cnts: [";
       for (size_t i = 0; i < inboxes.size(); ++i) {
         std::cout << " " << i << ":" << inboxes[i].size();
-      } std::cout << std::endl;
+      } std::cout << "]" << std::endl;
+      
+      // Print Phenotype info
+      std::cout << "PHENOTYPE INFORMATION" << std::endl;
+      std::cout << "Score: " << phen.score << std::endl;
+      std::cout << "Task total: " << phen.task_total << std::endl;    
+      std::cout << "Task switch totals: " << phen.total_task_switches << std::endl;
+      std::cout << "Deme task cnts: [";
+      for (size_t i = 0; i < task_set.GetSize(); ++i) {
+        std::cout << " " << task_set.GetName(i) << ":" << phen.GetDemeTaskCnt(i);
+      } std::cout << "]" << std::endl;
+      std::cout << "Individual informations: " << std::endl;
+      for (size_t hwID = 0; hwID < eval_deme->GetSize(); ++hwID) {
+        std::cout << " -- " << hwID << " -- " << std::endl;
+        std::cout << "  Total tasks: " << phen.GetIndivTotalTaskCnt(hwID) << std::endl;
+        std::cout << "  Task switches: " << phen.GetIndivTaskSwitches(hwID) << std::endl;
+        std::cout << "  Task cnts: [";
+        for (size_t i = 0; i < task_set.GetSize(); ++i) {
+          std::cout << " " << task_set.GetName(i) << ":" << phen.GetIndivTaskCnt(hwID, i);
+        } std::cout << "]" << std::endl;
+      }
       eval_deme->PrintState();
     }
     std::cout << "DONE EVALUATING DEME" << std::endl;
+
+    // Test tasks.
+    // size_t trials_with_collisions = 0;
+    // bool collision = false;
+    // for (size_t trials = 0; trials < 10000; ++trials) {
+    //   std::cout << "=========================== TRAIL: " << trials << " ===========================" << std::endl;
+    //   ResetTasks();
+    //   std::cout << "Check collisions: " << task_set.IsCollision() << std::endl;
+    //   std::unordered_set<task_io_t> solutions;
+    //   emp::vector<std::string> collisions;
+    //   for (size_t i = 0; i < task_set.GetSize(); ++i) {
+    //     taskset_t::Task & task_i = task_set.GetTask(i);
+    //     for (size_t k = i+1; k < task_set.GetSize(); ++k) {
+    //       taskset_t::Task & task_k = task_set.GetTask(k);
+    //       std::cout << "=== Comparing Task " << task_i.name << " and Task " << task_k.name << " ===" << std::endl;
+    //       // Compare solutions.
+    //       for (size_t s_i = 0; s_i < task_i.solutions.size(); ++s_i) {
+    //         for (size_t s_k = 0; s_k < task_k.solutions.size(); ++s_k) {
+    //           task_io_t i_sol = task_i.solutions[s_i];
+    //           task_io_t k_sol = task_k.solutions[s_k];
+    //           if (i_sol == k_sol) {
+    //             collision = true;
+    //             std::cout << "Task " << task_i.name << " shares solution with Task " << task_k.name << std::endl;
+    //             std::cout << "  " << i_sol << " == " << k_sol << std::endl;
+    //             std::cout << "  Inputs: " << task_inputs[0] << "," << task_inputs[1] << std::endl;
+    //           }
+    //         }
+    //       }
+    //     }
+    //   }
+    //   if (collision) trials_with_collisions++;
+    //   collision = false;
+    // }
+    // std::cout << "TOTAL TRIALS WITH COLLISIONS: " << trials_with_collisions << std::endl;
     exit(-1);
   }
 
@@ -367,6 +487,9 @@ public:
     GENERATIONS = config.GENERATIONS();
     EVAL_TIME = config.EVAL_TIME();
     TRIAL_CNT = config.TRIAL_CNT();
+    TASK_BASE_REWARD = config.TASK_BASE_REWARD();
+    TASK_SWITCHING_PENALTY = config.TASK_SWITCHING_PENALTY();
+    INDIV_TASK_CAP = config.INDIV_TASK_CAP();
     DEME_WIDTH = config.DEME_WIDTH();
     DEME_HEIGHT = config.DEME_HEIGHT();
     PROPAGULE_SIZE = config.PROPAGULE_SIZE();
@@ -441,7 +564,7 @@ public:
         Config_Analysis();
         break;
     }
-    Test();
+    // Test();
   }
 
   void Run() {
@@ -479,6 +602,7 @@ public:
   double CalcFitness(Agent & agent) { return agent_phen_cache[agent.GetID()].GetScore(); } ;
 
   void InitPopulation_FromAncestorFile();
+  void Snapshot_SingleFile(size_t update);
 
   // Instructions
   // (execution control)
@@ -554,19 +678,13 @@ void Experiment::Inst_Submit(hardware_t & hw, const inst_t & inst) {
   // Submit! --> Did hw complete a task?
   task_io_t sol = (task_io_t)state.GetLocal(inst.args[0]);
   size_t hw_id = hw.GetTrait(TRAIT_ID__DEME_ID);
-  // TODO: what do about multiple hits? --> Don't care; just give credit for first one?
+  // NOTE: Task solutions are guaranteed to be unique to each task.
   for (size_t task_id = 0; task_id < task_set.GetSize(); ++task_id) {
     if (task_set.CheckTask(task_id, sol)) {
-      // Just give credit to first one.
-      // Submit(task_id, hw_id);
-      // TODO: stick information somewhere
-      //  - In the deme? Or, in the phenotype?
-      //  - If in the deme: need to add proper structures to deme class
-      //  - If in the phenotype cache, need to pull cache ID from somewhere (eval_deme seems like a good place)
+      SubmitTask(hw_id, task_id);
       break;
     }
   }
-  // task_set.Submit((task_io_t)state.GetLocal(inst.args[0]), eval_time);
 }
 
 void Experiment::Inst_ActivateFacing(hardware_t & hw, const inst_t & inst) {
@@ -676,7 +794,6 @@ void Experiment::HandleEvent__Message_NonForking(hardware_t & hw, const event_t 
   for (auto mem : event.msg) { state.SetInput(mem.first, mem.second); }
 }
 
-
 // --- Utilities ---
 void Experiment::InitPopulation_FromAncestorFile() {
   std::cout << "Initializing population from ancestor file!" << std::endl;
@@ -692,6 +809,19 @@ void Experiment::InitPopulation_FromAncestorFile() {
   ancestor_prog.PrintProgramFull();
   std::cout << " -------------------------" << std::endl;
   world->Inject(ancestor_prog, 1);    // Inject a bunch of ancestors into the population.
+}
+
+void Experiment::Snapshot_SingleFile(size_t update) {
+  std::string snapshot_dir = DATA_DIRECTORY + "pop_" + emp::to_string((int)update);
+  mkdir(snapshot_dir.c_str(), ACCESSPERMS);
+  // For each program in the population, dump the full program description in a single file.
+  std::ofstream prog_ofstream(snapshot_dir + "/pop_" + emp::to_string((int)update) + ".pop");
+  for (size_t i = 0; i < world->GetSize(); ++i) {
+    if (i) prog_ofstream << "===\n";
+    Agent & agent = world->GetOrg(i);
+    agent.program.PrintProgramFull(prog_ofstream);
+  }
+  prog_ofstream.close();
 }
 
 // --- Configuration/setup function implementations ---
@@ -736,17 +866,31 @@ void Experiment::Config_Run() {
   do_evaluation_sig.AddAction([this]() {
     double best_score = -32767;
     dom_agent_id = 0;
+    ResetTasks();
     for (size_t id = 0; id < world->GetSize(); ++id) {
       Agent & our_hero = world->GetOrg(id);
       our_hero.SetID(id);
       eval_deme->SetProgram(our_hero.GetGenome());
+      eval_deme->SetPhenID(id);
       agent_phen_cache[id].Reset();
       this->Evaluate(our_hero);
-      // TODO: any phenotype crimping?
       if (agent_phen_cache[id].GetScore() > best_score) { best_score = agent_phen_cache[id].GetScore(); dom_agent_id = id; }
     }
+    std::cout << "Update: " << update << " Max score: " << best_score << std::endl;
   });
-  // TODO: finish..
+  
+  do_selection_sig.AddAction([this]() {
+    emp::EliteSelect(*world, ELITE_SELECT__ELITE_CNT, 1);
+    emp::TournamentSelect(*world, TOURNAMENT_SIZE, POP_SIZE - ELITE_SELECT__ELITE_CNT);
+  });
+  
+  // Do world update action
+  do_world_update_sig.AddAction([this]() {
+    world->Update();
+  });
+
+  // Do population snapshot action
+  do_pop_snapshot_sig.AddAction([this](size_t update) { this->Snapshot_SingleFile(update); }); 
 
 }
 
@@ -816,7 +960,7 @@ void Experiment::Config_HW() {
   // TODO: what happens on hardware reset (in eval deme)
   eval_deme->OnHardwareReset([this](hardware_t & hw) {
     hw.SetTrait(TRAIT_ID__ACTIVE, 0);
-    hw.SetTrait(TRAIT_ID__LAST_TASK, -1);
+    hw.SetTrait(TRAIT_ID__LAST_TASK, NO_TASK);
     hw.SetTrait(TRAIT_ID__UID, 0);
     hw.SetTrait(TRAIT_ID__DIR, 0);
     hw.SetTrait(TRAIT_ID__ROLE_ID, 0);
@@ -832,11 +976,11 @@ void Experiment::Config_HW() {
   });
 
   if (SGP_HW_FORK_ON_MSG) {
-    event_lib->AddEvent("SendMessage", HandleEvent__Message_Forking, "...");
-    event_lib->AddEvent("BroadcastMessage", HandleEvent__Message_Forking, "...");
+    event_lib->AddEvent("SendMessage", HandleEvent__Message_Forking, "Send message event.");
+    event_lib->AddEvent("BroadcastMessage", HandleEvent__Message_Forking, "Broadcast message event.");
   } else {
-    event_lib->AddEvent("SendMessage", HandleEvent__Message_NonForking, "...");
-    event_lib->AddEvent("BroadcastMessage", HandleEvent__Message_NonForking, "...");
+    event_lib->AddEvent("SendMessage", HandleEvent__Message_NonForking, "Send message event.");
+    event_lib->AddEvent("BroadcastMessage", HandleEvent__Message_NonForking, "Broadcast message event.");
   }
 
   if (SGP_HW_EVENT_DRIVEN) { // Hardware is event-driven.
@@ -914,7 +1058,7 @@ void Experiment::Config_HW() {
     });
   } else {
     // Should never get here!
-    std::cout << "Not sure what you want me to don on activate signal!" << std::endl;
+    std::cout << "Not sure what you want me to do on activate signal!" << std::endl;
     exit(-1);
   }
 }
@@ -984,8 +1128,7 @@ void Experiment::Config_Tasks() {
 /// - Instruction insertion/deletion mutations (per-instruction rate)
 ///   - Result cannot allow function length to break [PROG_MIN_FUNC_LEN:PROG_MAX_FUNC_LEN]
 ///   - Result cannot allow function length to exeed PROG_MAX_TOTAL_LEN
-size_t Experiment::Mutate(Agent &agent, emp::Random &rnd)
-{
+size_t Experiment::Mutate(Agent &agent, emp::Random &rnd) {
   program_t &program = agent.GetGenome();
   size_t mut_cnt = 0;
   size_t expected_prog_len = program.GetInstCnt();
