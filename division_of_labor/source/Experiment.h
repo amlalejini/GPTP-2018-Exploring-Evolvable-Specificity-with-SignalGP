@@ -277,6 +277,11 @@ protected:
     for (size_t i = 0; i < inboxes.size(); ++i) inboxes[i].clear();
   }
 
+  void ResetInbox(size_t id) {
+    emp_assert(id < inboxes.size());
+    inboxes[id].clear();
+  }
+
   inbox_t & GetInbox(size_t id) {
     emp_assert(id < inboxes.size());
     return inboxes[id];
@@ -289,7 +294,7 @@ protected:
 
   bool InboxEmpty(size_t id) const {
     emp_assert(id < inboxes.size());
-    return (bool)inboxes[id].size();
+    return inboxes[id].empty();
   }
 
   // Deliver message (event) to specified inbox. 
@@ -339,6 +344,11 @@ protected:
       eval_deme->SingleAdvance();
       std::cout << "=========================== TIME: " << eval_time << " ===========================" << std::endl;
       eval_deme->PrintActive();
+      // Print inbox sizes
+      std::cout << "Inbox cnts: [";
+      for (size_t i = 0; i < inboxes.size(); ++i) {
+        std::cout << " " << i << ":" << inboxes[i].size();
+      } std::cout << std::endl;
       eval_deme->PrintState();
     }
     std::cout << "DONE EVALUATING DEME" << std::endl;
@@ -592,7 +602,9 @@ void Experiment::Inst_BroadcastMsg(hardware_t & hw, const inst_t & inst) {
 
 void Experiment::Inst_RetrieveMsg(hardware_t & hw, const inst_t & inst) {
   const size_t loc_id = (size_t)hw.GetTrait(TRAIT_ID__DEME_ID);
+  std::cout << "Inst: RetrieveMsg!" << std::endl;
   if (!InboxEmpty(loc_id)) {
+    std::cout << "Inbox is not empty!" << std::endl;
     inbox_t & inbox = GetInbox(loc_id);
     hw.HandleEvent(inbox.front());
     inbox.pop_front(); // Remove!
@@ -625,10 +637,14 @@ void Experiment::EventDriven__DispatchMessage_Send(hardware_t & hw, const event_
 
 void Experiment::EventDriven__DispatchMessage_Broadcast(hardware_t & hw, const event_t & event) {
   const size_t loc_id = (size_t)hw.GetTrait(TRAIT_ID__DEME_ID);
-  eval_deme->GetHardware(eval_deme->GetNeighborID(loc_id, DOLDeme::DIR_UP)).QueueEvent(event);  
-  eval_deme->GetHardware(eval_deme->GetNeighborID(loc_id, DOLDeme::DIR_DOWN)).QueueEvent(event);
-  eval_deme->GetHardware(eval_deme->GetNeighborID(loc_id, DOLDeme::DIR_LEFT)).QueueEvent(event);
-  eval_deme->GetHardware(eval_deme->GetNeighborID(loc_id, DOLDeme::DIR_RIGHT)).QueueEvent(event);  
+  const size_t uid = eval_deme->GetNeighborID(loc_id, DOLDeme::DIR_UP);
+  const size_t did = eval_deme->GetNeighborID(loc_id, DOLDeme::DIR_DOWN);
+  const size_t lid = eval_deme->GetNeighborID(loc_id, DOLDeme::DIR_LEFT);
+  const size_t rid = eval_deme->GetNeighborID(loc_id, DOLDeme::DIR_RIGHT);
+  if (eval_deme->IsActive(uid)) eval_deme->GetHardware(uid).QueueEvent(event);  
+  if (eval_deme->IsActive(did)) eval_deme->GetHardware(did).QueueEvent(event);
+  if (eval_deme->IsActive(lid)) eval_deme->GetHardware(lid).QueueEvent(event);
+  if (eval_deme->IsActive(rid)) eval_deme->GetHardware(rid).QueueEvent(event);  
 }
 
 void Experiment::Imperative__DispatchMessage_Send(hardware_t & hw, const event_t & event) {
@@ -638,10 +654,14 @@ void Experiment::Imperative__DispatchMessage_Send(hardware_t & hw, const event_t
 
 void Experiment::Imperative__DispatchMessage_Broadcast(hardware_t & hw, const event_t & event) {
   const size_t loc_id = (size_t)hw.GetTrait(TRAIT_ID__DEME_ID);
-  DeliverToInbox(eval_deme->GetNeighborID(loc_id, DOLDeme::DIR_UP), event);
-  DeliverToInbox(eval_deme->GetNeighborID(loc_id, DOLDeme::DIR_DOWN), event);
-  DeliverToInbox(eval_deme->GetNeighborID(loc_id, DOLDeme::DIR_LEFT), event);
-  DeliverToInbox(eval_deme->GetNeighborID(loc_id, DOLDeme::DIR_RIGHT), event);
+  const size_t uid = eval_deme->GetNeighborID(loc_id, DOLDeme::DIR_UP);
+  const size_t did = eval_deme->GetNeighborID(loc_id, DOLDeme::DIR_DOWN);
+  const size_t lid = eval_deme->GetNeighborID(loc_id, DOLDeme::DIR_LEFT);
+  const size_t rid = eval_deme->GetNeighborID(loc_id, DOLDeme::DIR_RIGHT);
+  if (eval_deme->IsActive(uid)) DeliverToInbox(uid, event);
+  if (eval_deme->IsActive(did)) DeliverToInbox(did, event);
+  if (eval_deme->IsActive(lid)) DeliverToInbox(lid, event);
+  if (eval_deme->IsActive(rid)) DeliverToInbox(rid, event);
 }
 
 void Experiment::HandleEvent__Message_Forking(hardware_t & hw, const event_t & event) {
@@ -781,7 +801,10 @@ void Experiment::Config_HW() {
   inst_lib->AddInst("SetRoleID", Inst_SetRoleID, 1, "TRAITS[ROLE_ID]=WM[ARG1]");
   // - Location instructions
   inst_lib->AddInst("GetLocXY", [this](hardware_t & hw, const inst_t & inst) { this->Inst_GetLocXY(hw, inst); }, 2, "WM[ARG1]=LOCX, WM[ARG2]=LOCY");
-  
+  // - Messaging instructions
+  inst_lib->AddInst("SendMsg", Inst_SendMsgFacing, 0, "Send output memory as message event to faced neighbor.", emp::ScopeType::BASIC, 0, {"affinity"});
+  inst_lib->AddInst("BroadcastMsg", Inst_BroadcastMsg, 0, "Broadcast output memory as message event.", emp::ScopeType::BASIC, 0, {"affinity"});
+
   // Configure evaluation hardware.
   // TODO: config options for this! ==> Imperative vs. Event-driven versions. 
   // Make eval deme.
@@ -844,8 +867,7 @@ void Experiment::Config_HW() {
     // Configure inboxes.
     inboxes.resize(DEME_SIZE);
     eval_deme->OnHardwareReset([this](hardware_t & hw) {
-      std::cout << "Reset the inboxi!" << std::endl;
-      this->ResetInboxes();
+      this->ResetInbox(hw.GetTrait(TRAIT_ID__DEME_ID));
     });
   }
 
