@@ -1,0 +1,48 @@
+#!/bin/bash -login
+
+### Configure job:
+#PBS -l walltime=03:00:00:00
+#PBS -l feature=intel16
+#PBS -l mem=8gb
+#PBS -t 5001-5200
+#PBS -N SGP_MapElites
+
+### load necessary modules, e.g.
+module load powertools
+
+# General Parameters.
+EXEC=l9_chg_env
+
+# MAP-ELITES
+S3_MIN=5001
+S3_MAX=5100
+
+# TOURNIE
+S0_MIN=5101
+S0_MAX=5200
+
+RANDOM_SEED=${PBS_ARRAYID}
+ENVIRONMENT_STATES=8
+
+DATA_DIR=/mnt/scratch/lalejini/data/sgp_map_elites/data
+CONFIG_DIR=/mnt/scratch/lalejini/data/sgp_map_elites/configs
+
+########################### EVENT-DRIVEN TREATMENTS ###########################
+if [ ${PBS_ARRAYID} -ge  ${S3_MIN} ]  && [ ${PBS_ARRAYID} -le  ${S3_MAX} ]; then   
+  SELECTION_METHOD=3
+
+elif [ ${PBS_ARRAYID} -ge  ${S0_MIN} ]  && [ ${PBS_ARRAYID} -le  ${S0_MAX} ]; then   
+  SELECTION_METHOD=0
+
+fi
+
+RUN_NAME=S${SELECTION_METHOD}_ES${ENVIRONMENT_STATES}_${RANDOM_SEED}
+RUN_DIR=${DATA_DIR}/${RUN_NAME}
+# Make run directory.
+mkdir -p ${RUN_DIR}
+# CD to appropriate directory.
+cd ${RUN_DIR}
+# Copy configs here.
+cp -R ${CONFIG_DIR}/* .
+# Run experiment.
+./${EXEC} -RANDOM_SEED ${RANDOM_SEED} -ENVIRONMENT_STATES ${ENVIRONMENT_STATES} -SELECTION_METHOD ${SELECTION_METHOD} > run.log
