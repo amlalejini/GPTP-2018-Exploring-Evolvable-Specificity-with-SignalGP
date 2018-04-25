@@ -64,6 +64,10 @@ protected:
   bool all_tasks_completed;
   // task_input_t task_inputs;
 
+  bool sollision;
+  std::unordered_set<task_output_t> solution_set; ///< Used for detecting collisions between solutions.
+
+
 public:
   TaskSet()
     : unique_tasks_credited(0),
@@ -74,7 +78,8 @@ public:
       time_all_tasks_credited(0),
       time_all_tasks_completed(0),
       all_tasks_credited(false),
-      all_tasks_completed(false)
+      all_tasks_completed(false),
+      sollision(false)
     { ; }
   ~TaskSet() { ; }
 
@@ -128,12 +133,24 @@ public:
     }
   }
 
+  bool IsCollision() const { return sollision; }
+
+
   /// Set inputs. Reset everything.
   void SetInputs(const task_input_t & inputs) {
+    sollision = false;
+    solution_set.clear();
     Reset();
     for (size_t i = 0; i < task_lib.size(); ++i) {
       task_lib[i].solutions.resize(0);
       task_lib[i].generate_solutions(task_lib[i], inputs);
+      for (size_t s = 0; s < task_lib[i].solutions.size(); ++s) {
+        if (emp::Has(solution_set, task_lib[i].solutions[s])) {
+          sollision = true;
+        } else {
+          solution_set.emplace(task_lib[i].solutions[s]);
+        }
+      }
     }
   }
 

@@ -321,6 +321,17 @@ protected:
   std::function<double(Agent &)> inst_ent_fun;
   std::function<int(Agent &)> func_cnt_fun;
 
+  void ResetTasks() {
+    task_inputs[0] = random->GetUInt(MIN_TASK_INPUT, MAX_TASK_INPUT);
+    task_inputs[1] = random->GetUInt(MIN_TASK_INPUT, MAX_TASK_INPUT);
+    task_set.SetInputs(task_inputs);
+    while (task_set.IsCollision()) {
+      task_inputs[0] = random->GetUInt(MIN_TASK_INPUT, MAX_TASK_INPUT);
+      task_inputs[1] = random->GetUInt(MIN_TASK_INPUT, MAX_TASK_INPUT);
+      task_set.SetInputs(task_inputs);
+    }
+  }
+
   size_t GetCacheIndex(size_t agent_id, size_t trial_id) {
     return (agent_id * TRIAL_CNT) + trial_id;
   }
@@ -472,6 +483,8 @@ public:
   void InitPopulation_FromAncestorFile();
   void InitPopulation_Random(); 
   void Snapshot_SingleFile(size_t update);
+  void SnapshotStats_SingleFile(size_t update);
+
 
   emp::DataFile & AddDominantFile(const std::string & fpath="dominant.csv");
 
@@ -620,6 +633,11 @@ void Experiment::Snapshot_SingleFile(size_t update) {
   }
   prog_ofstream.close();
 }
+
+// emp::DataFile & Experiment::SnapshotStats_SingleFile(const std::string & fpath) {
+
+//   return;
+// }
 
 /// Setup a data_file with world that records information about the dominant genotype.
 emp::DataFile & Experiment::AddDominantFile(const std::string & fpath) {
@@ -938,10 +956,11 @@ void Experiment::Config_Run() {
   // Begin eval trial action
   begin_trial_sig.AddAction([this](Agent & agent) {
     // 1) Reset tasks.
-    task_inputs[0] = random->GetUInt(MIN_TASK_INPUT, MAX_TASK_INPUT);
-    task_inputs[1] = random->GetUInt(MIN_TASK_INPUT, MAX_TASK_INPUT);
+    // task_inputs[0] = random->GetUInt(MIN_TASK_INPUT, MAX_TASK_INPUT);
+    // task_inputs[1] = random->GetUInt(MIN_TASK_INPUT, MAX_TASK_INPUT);
+    // task_set.SetInputs(task_inputs);
+    ResetTasks();
     input_load_id = 0;
-    task_set.SetInputs(task_inputs);
     // 2) Reset hardware
     functions_used.clear();
     eval_hw->ResetHardware();
