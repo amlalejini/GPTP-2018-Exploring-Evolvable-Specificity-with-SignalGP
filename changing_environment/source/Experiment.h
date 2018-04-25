@@ -634,10 +634,88 @@ void Experiment::Snapshot_SingleFile(size_t update) {
   prog_ofstream.close();
 }
 
-// emp::DataFile & Experiment::SnapshotStats_SingleFile(const std::string & fpath) {
+void Experiment::SnapshotStats_SingleFile(size_t update) {
+  std::string snapshot_dir = DATA_DIRECTORY + "pop_" + emp::to_string((int)update);
+  mkdir(snapshot_dir.c_str(), ACCESSPERMS);
+  emp::DataFile file(snapshot_dir + "/pop_" + emp::to_string((int)update) + ".csv");
+  std::function<size_t(void)> get_update = [this](){ return world->GetUpdate(); };
+  file.AddFun(get_update, "update", "Update");
 
-//   return;
-// }
+  size_t world_id = 0;
+  std::function<size_t(void)> get_id = [this, &world_id]() { return world_id; };
+  file.AddFun(get_id, "id", "...");
+
+  std::function<double(void)> get_score = [this, &world_id]() {
+    Phenotype & phen = agent_phen_cache[world_id];
+    return phen.GetMinScore();
+  };
+  file.AddFun(get_score, "score", "...");
+
+  std::function<size_t(void)> get_env_match_score = [this, &world_id]() {
+    Phenotype & phen = agent_phen_cache[world_id];
+    return phen.GetMinEnvMatchScore();
+  };
+  file.AddFun(get_env_match_score, "env_matches", "...");
+
+  std::function<size_t(void)> get_time_all_tasks_credited = [this, &world_id]() {
+    Phenotype & phen = agent_phen_cache[world_id];
+    return phen.GetMinTimeAllTasksCredited();
+  };
+  file.AddFun(get_time_all_tasks_credited, "time_all_tasks_credited", "...");
+
+  std::function<size_t(void)> get_unique_tasks_completed = [this, &world_id]() {
+    Phenotype & phen = agent_phen_cache[world_id];
+    return phen.GetMinUniqueTasksCompleted();
+  };
+  file.AddFun(get_unique_tasks_completed, "total_unique_tasks_completed", "...");
+
+  std::function<size_t(void)> get_total_wasted_completions = [this, &world_id]() {
+    Phenotype & phen = agent_phen_cache[world_id];
+    return phen.GetMinTotalWastedCompletions();
+  };
+  file.AddFun(get_total_wasted_completions, "total_wasted_completions", "...");
+
+  std::function<size_t(void)> get_unique_tasks_credited = [this, &world_id]() {
+    Phenotype & phen = agent_phen_cache[world_id];
+    return phen.GetMinUniqueTasksCredited();
+  };
+  file.AddFun(get_unique_tasks_credited, "total_unique_tasks_credited", "...");
+
+  for (size_t i = 0; i < TASK_CNT; ++i) {
+    std::function<size_t(void)> get_wasted = [this, i, &world_id]() {
+      Phenotype & phen = agent_phen_cache[world_id];
+      return phen.GetMinTaskWastedCompletions(i);
+    };
+    file.AddFun(get_wasted, "wasted_"+task_set.GetName(i), "...");
+
+    std::function<size_t(void)> get_completed = [this, i, &world_id]() {
+      Phenotype & phen = agent_phen_cache[world_id];
+      return phen.GetMinTaskCompleted(i);
+    };
+    file.AddFun(get_completed, "completed_"+task_set.GetName(i), "...");
+
+    std::function<size_t(void)> get_credited = [this, i, &world_id]() {
+      Phenotype & phen = agent_phen_cache[world_id];
+      return phen.GetMinTaskCredited(i);
+    };
+    file.AddFun(get_credited, "credited_"+task_set.GetName(i), "...");
+  }
+  file.PrintHeaderKeys();
+
+  // Loop through population, evaluate, update file.
+  for (world_id = 0; world_id < world->GetSize(); ++world_id) {
+    if (!world->IsOccupied(world_id)) continue;
+    Agent & agent = world->GetOrg(world_id);
+    agent.SetID(world_id);
+    eval_hw->SetProgram(agent.GetGenome());
+    // Reset cache values.
+    agent_phen_cache[world_id].Reset();
+    this->Evaluate(agent);
+    // Find min trial.
+    agent_phen_cache[world_id].SetMinTrial();
+    file.Update();
+  }
+}
 
 /// Setup a data_file with world that records information about the dominant genotype.
 emp::DataFile & Experiment::AddDominantFile(const std::string & fpath) {
@@ -792,6 +870,8 @@ void Experiment::Config_Run() {
       do_pop_init_sig.Trigger();
     });
 
+    do_pop_snapshot_sig.AddAction([this](size_t update) { this->SnapshotStats_SingleFile(update); });
+
   } else {
     std::cout << "Not map elites!" << std::endl;
     world->SetWellMixed(true);
@@ -884,8 +964,6 @@ void Experiment::Config_Run() {
       exit(-1);
     }
   }
-
-
 
   // Do population snapshot action
   do_pop_snapshot_sig.AddAction([this](size_t update) { this->Snapshot_SingleFile(update); });
