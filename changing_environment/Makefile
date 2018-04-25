@@ -1,5 +1,5 @@
 # Project-specific settings
-PROJECT := dol
+PROJECT := l9_chg_env
 EMP_DIR := ../../Empirical/source
 
 # Flags to use regardless of compiler
