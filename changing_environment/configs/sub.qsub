@@ -4,7 +4,7 @@
 #PBS -l walltime=03:00:00:00
 #PBS -l feature=intel16
 #PBS -l mem=8gb
-#PBS -t 5001-5200
+#PBS -t 5001-5060
 #PBS -N SGP_MapElites
 
 ### load necessary modules, e.g.
@@ -15,11 +15,11 @@ EXEC=l9_chg_env
 
 # MAP-ELITES
 S3_MIN=5001
-S3_MAX=5100
+S3_MAX=5030
 
 # TOURNIE
-S0_MIN=5101
-S0_MAX=5200
+S0_MIN=5031
+S0_MAX=5060
 
 RANDOM_SEED=${PBS_ARRAYID}
 ENVIRONMENT_STATES=8

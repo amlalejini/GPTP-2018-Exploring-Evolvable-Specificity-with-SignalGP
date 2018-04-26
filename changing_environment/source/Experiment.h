@@ -115,6 +115,7 @@ public:
     emp::vector<size_t> completed; ///< By trial & by task
 
     size_t min_trial;
+    double inst_entropy;
 
     size_t GetByTaskIdx(size_t trial_id, size_t task_id) const {
       return (trial_id * TASK_CNT) + task_id;
@@ -132,12 +133,14 @@ public:
         wasted_completions(trial_cnt * TASK_CNT),
         credited(trial_cnt * TASK_CNT),
         completed(trial_cnt * TASK_CNT),
-        min_trial(0)
+        min_trial(0),
+        inst_entropy(0)
     { emp_assert(trial_cnt > 0); }
 
     /// Zero out everything we're tracking.
     void Reset() {
       min_trial = 0;
+      inst_entropy = 0.0;
       for (size_t i = 0; i < scores_by_trial.size(); ++i) {
         env_match_score_by_trial[i] = 0;
         time_all_tasks_credited_by_trial[i] = 0;
@@ -168,6 +171,7 @@ public:
     }
 
     size_t GetMinTrial() const { return min_trial; }
+    double GetInstEntropy() const { return inst_entropy; }
 
     size_t GetEnvMatchScore(size_t trialID) const { return env_match_score_by_trial[trialID]; }
     size_t GetTimeAllTasksCredited(size_t trialID) const { return time_all_tasks_credited_by_trial[trialID]; }
@@ -176,7 +180,7 @@ public:
     size_t GetUniqueTasksCompleted(size_t trialID) const { return unique_tasks_completed_by_trial[trialID]; }
     size_t GetFunctionsUsed(size_t trialID) const { return functions_used_by_trial[trialID]; }
     double GetScore(size_t trialID) const { return scores_by_trial[trialID]; }
-
+    
     size_t GetTaskWastedCompletions(size_t trialID, size_t taskID) const { return wasted_completions[GetByTaskIdx(trialID, taskID)]; }
     size_t GetTaskCredited(size_t trialID, size_t taskID) const { return credited[GetByTaskIdx(trialID, taskID)]; }
     size_t GetTaskCompleted(size_t trialID, size_t taskID) const { return completed[GetByTaskIdx(trialID, taskID)]; }
@@ -212,6 +216,7 @@ public:
     void SetFunctionsUsed(size_t trialID, size_t val) { functions_used_by_trial[trialID] = val; }
 
     void SetScore(size_t trialID, double val) { scores_by_trial[trialID] = val; }
+    void SetInstEntropy(double ent) { inst_entropy = ent; }
 
     void SetTaskWastedCompletions(size_t trialID, size_t taskID, size_t val) { wasted_completions[GetByTaskIdx(trialID, taskID)] = val; }
     void SetTaskCredited(size_t trialID, size_t taskID, size_t val) { credited[GetByTaskIdx(trialID, taskID)] = val; }
@@ -638,12 +643,25 @@ void Experiment::SnapshotStats_SingleFile(size_t update) {
   std::string snapshot_dir = DATA_DIRECTORY + "pop_" + emp::to_string((int)update);
   mkdir(snapshot_dir.c_str(), ACCESSPERMS);
   emp::DataFile file(snapshot_dir + "/pop_" + emp::to_string((int)update) + ".csv");
+  
   std::function<size_t(void)> get_update = [this](){ return world->GetUpdate(); };
   file.AddFun(get_update, "update", "Update");
 
   size_t world_id = 0;
   std::function<size_t(void)> get_id = [this, &world_id]() { return world_id; };
   file.AddFun(get_id, "id", "...");
+
+  std::function<size_t(void)> get_func_used = [this, &world_id]() {
+    Phenotype & phen = agent_phen_cache[world_id];
+    return phen.GetMinFunctionsUsed();
+  };
+  file.AddFun(get_func_used, "func_used", "...");
+
+  std::function<double(void)> get_inst_ent = [this, &world_id]() {
+    Phenotype & phen = agent_phen_cache[world_id];
+    return phen.GetInstEntropy();
+  };
+  file.AddFun(get_inst_ent, "inst_entropy", "...");
 
   std::function<double(void)> get_score = [this, &world_id]() {
     Phenotype & phen = agent_phen_cache[world_id];
@@ -713,6 +731,7 @@ void Experiment::SnapshotStats_SingleFile(size_t update) {
     this->Evaluate(agent);
     // Find min trial.
     agent_phen_cache[world_id].SetMinTrial();
+    agent_phen_cache[world_id].SetInstEntropy(inst_ent_fun(agent));
     file.Update();
   }
 }
@@ -723,6 +742,18 @@ emp::DataFile & Experiment::AddDominantFile(const std::string & fpath) {
 
     std::function<size_t(void)> get_update = [this](){ return world->GetUpdate(); };
     file.AddFun(get_update, "update", "Update");
+
+    std::function<size_t(void)> get_func_used = [this]() {
+      Phenotype & phen = agent_phen_cache[dom_agent_id];
+      return phen.GetMinFunctionsUsed();
+    };
+    file.AddFun(get_func_used, "func_used", "...");
+
+    std::function<double(void)> get_inst_ent = [this]() {
+      Phenotype & phen = agent_phen_cache[dom_agent_id];
+      return phen.GetInstEntropy();
+    };
+    file.AddFun(get_inst_ent, "inst_entropy", "...");
 
     std::function<double(void)> get_score = [this]() {
       Phenotype & phen = agent_phen_cache[dom_agent_id];
@@ -792,6 +823,29 @@ void Experiment::Config_Run() {
   world->Reset();
   world->SetMutFun([this](Agent & agent, emp::Random & rnd) { return this->Mutate(agent, rnd); });
   world->SetMutateBeforeBirth();
+
+  inst_ent_fun = [](Agent & agent) {
+    emp::vector<inst_t> inst_seq;
+    program_t & prog = agent.GetGenome();
+    for (size_t i = 0; i < prog.GetSize(); ++i) {
+      for (size_t k = 0; k < prog[i].GetSize(); ++k) {
+        inst_seq.emplace_back(prog[i][k].id);
+      }
+    }
+    const double ent = emp::ShannonEntropy(inst_seq);
+    return ent;
+  };
+  func_cnt_fun = [this](Agent & agent) {
+    return (int)functions_used.size();
+    // return (int)agent.GetGenome().GetSize(); 
+  };
+
+  eval_hw->OnBeforeFuncCall([this](hardware_t & hw, size_t fID) {
+    functions_used.emplace(fID);
+  });
+  eval_hw->OnBeforeCoreSpawn([this](hardware_t & hw, size_t fID) {
+    functions_used.emplace(fID);
+  });
   
   if (MAP_ELITES_MODE) {
     world->SetCache();
@@ -805,6 +859,7 @@ void Experiment::Config_Run() {
       this->Evaluate(agent);
       // Find min trial.
       agent_phen_cache[id].SetMinTrial();
+      agent_phen_cache[id].SetInstEntropy(inst_ent_fun(agent));
       const double score = agent_phen_cache[id].GetMinScore();
       if (score > best_score) { best_score = score; dom_agent_id = id; }
 
@@ -818,32 +873,10 @@ void Experiment::Config_Run() {
       // exit(-1);
       return score;
     }); 
-
-    inst_ent_fun = [](Agent & agent) {
-      emp::vector<inst_t> inst_seq;
-      program_t & prog = agent.GetGenome();
-      for (size_t i = 0; i < prog.GetSize(); ++i) {
-        for (size_t k = 0; k < prog[i].GetSize(); ++k) {
-          inst_seq.emplace_back(prog[i][k].id);
-        }
-      }
-      const double ent = emp::ShannonEntropy(inst_seq);
-      return ent;
-    };
-    func_cnt_fun = [this](Agent & agent) {
-      return (int)functions_used.size();
-      // return (int)agent.GetGenome().GetSize(); 
-    };
-
-    eval_hw->OnBeforeFuncCall([this](hardware_t & hw, size_t fID) {
-      functions_used.emplace(fID);
-    });
-    eval_hw->OnBeforeCoreSpawn([this](hardware_t & hw, size_t fID) {
-      functions_used.emplace(fID);
-    });
   
-    world->AddPhenotype("Num Functions", func_cnt_fun, SGP_PROG_MIN_FUNC_CNT, SGP_PROG_MAX_FUNC_CNT);
-    world->AddPhenotype("Entropy", inst_ent_fun, 0.0, (double)std::ceil(max_inst_entropy));
+    world->AddPhenotype("Num Functions", func_cnt_fun, SGP_PROG_MIN_FUNC_CNT, SGP_PROG_MAX_FUNC_CNT+1);
+    // world->AddPhenotype("Entropy", inst_ent_fun, 0.0, (double)std::ceil(max_inst_entropy));
+    world->AddPhenotype("Entropy", inst_ent_fun, 0.0, max_inst_entropy + 0.1);
     emp::SetMapElites(*world, {SGP_PROG_MAX_FUNC_CNT,MAP_ELITES__ENTROPY_RES});
 
     do_evaluation_sig.AddAction([this]() {
@@ -870,8 +903,6 @@ void Experiment::Config_Run() {
       do_pop_init_sig.Trigger();
     });
 
-    do_pop_snapshot_sig.AddAction([this](size_t update) { this->SnapshotStats_SingleFile(update); });
-
   } else {
     std::cout << "Not map elites!" << std::endl;
     world->SetWellMixed(true);
@@ -890,6 +921,7 @@ void Experiment::Config_Run() {
         this->Evaluate(our_hero);
         // Find min trial.
         agent_phen_cache[id].SetMinTrial();
+        agent_phen_cache[id].SetInstEntropy(inst_ent_fun(our_hero));
         // -- Keep track of worst-type phenotype & cur phenotype;
         if (agent_phen_cache[id].GetMinScore() > best_score) { best_score = agent_phen_cache[id].GetMinScore(); dom_agent_id = id; }
       }
@@ -967,6 +999,7 @@ void Experiment::Config_Run() {
 
   // Do population snapshot action
   do_pop_snapshot_sig.AddAction([this](size_t update) { this->Snapshot_SingleFile(update); });
+  do_pop_snapshot_sig.AddAction([this](size_t update) { this->SnapshotStats_SingleFile(update); });
 
   // Do selection on population action
   switch (SELECTION_METHOD) {
@@ -1071,19 +1104,6 @@ void Experiment::Config_Run() {
       agent_phen_cache[agent_id].IncEnvMatchScore(eval_trial);
     }
   });
-  // if (MAP_ELITES_MODE) {
-  //   agent_advance_sig.AddAction([this](Agent & agent) {
-  //     // Count all functions in use on eval_hw!
-  //     auto & cores = eval_hw->GetCores();
-  //     for (size_t i = 0; i < cores.size(); ++i) {
-  //       // Is this core active? 
-  //       if (cores[i].size()) {
-  //         auto & cur_state = cores[i].back();
-  //         functions_used.emplace(cur_state.func_ptr); // Add function to used functions.
-  //       }
-  //     }
-  //   });
-  // }
 
   switch (ENVIRONMENT_CHANGE_METHOD) {
     case ENV_CHG_ID__RANDOM:
