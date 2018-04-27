@@ -36,11 +36,11 @@ def main():
         run_dir = os.path.join(exp_dir, run)
         run_id = run.split("_")[-1]
         treatment = "_".join(run.split("_")[:-1])
-        pop_dir = os.path.join(run_dir, "pop_{}".format(str(update)))
+        pop_dir = os.path.join(run_dir, "output", "pop_{}".format(str(update)))
         pop_stats_fpath = os.path.join(pop_dir, "pop_{}.csv".format(str(update)))
         pop_stats = None
         try:
-            with open(os.path.join(pop_stats_fpath), "r") as fp:
+            with open(pop_stats_fpath, "r") as fp:
                 pop_stats = fp.readlines()
         except:
             print("Could not open pop stats file for: " + run_dir)
