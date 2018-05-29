@@ -124,7 +124,7 @@ def main():
                 func_cnt = line[header_lu["func_cnt"]]
                 func_used = line[header_lu["func_used"]]
                 inst_entropy = line[header_lu["inst_entropy"]]
-                sim_thresh = line[header_lu["sim_thresh"]]
+                sim_thresh = line[header_lu["sim_thresh"]].strip()
                 if not agent_id in info_by_agent:
                     info_by_agent[agent_id] = {"trials": 0, "agg_fitness": 0, "agg_func_used": 0}
                 info_by_agent[agent_id]["trials"] += 1
