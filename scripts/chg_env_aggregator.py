@@ -39,8 +39,8 @@ def main():
     evo_runs = [r for r in runs if "RM0" in r]
     mape_runs = [r for r in runs if "RM1" in r]
 
-    print("=== EVO runs: ===\n" + str(evo_runs))
-    print("=== MAPE runs: ===\n" + str(mape_runs))
+    print("EVO run cnt: " + str(len(evo_runs)))
+    print("MAPE run cnt: " + str(len(mape_runs)))
     
     mkdir_p(dump)
 
@@ -78,23 +78,11 @@ def main():
                 fit_agg += float(line[header_lu["fitness"]])
                 trials += 1
             avg_fit = fit_agg / float(trials)
-            dom_evo_content += ",".join([run_id, sim_thresh, dist_sigs, update, avg_fit]) + "\n"
+            dom_evo_content += ",".join([run_id, sim_thresh, dist_sigs, update, str(avg_fit)]) + "\n"
     # Write out dom evo content
     with open(os.path.join(dump, "evo_dom.csv"), "w") as fp:
         fp.write(dom_evo_content)
 
-        
-
-
-
-
-
-
-
-
-    
-
-    args = parser.parse_args()
 
 
 if __name__ == "__main__":
