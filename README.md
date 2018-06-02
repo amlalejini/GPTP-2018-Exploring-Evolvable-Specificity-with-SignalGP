@@ -23,9 +23,9 @@ The source code for all experiments performed in this contribution can be found 
 The compiling/running the experiments require the [Empirical library](https://github.com/devosoft/Empirical).
 
 ## Experimental Results and Analyses
-A fully detailed data analysis for the experiments associated with this contribution can be found [**here**](analysis/stats.html). 
+A fully detailed data analysis for the experiments associated with this contribution can be found [**here**](http://lalejini.com/GPTP-2018-Exploring-Evolvable-Specificity-with-SignalGP/analysis/stats.html). 
 
-With [these analyses](analysis/stats.html), we address the following questions:
+With [these analyses](http://lalejini.com/GPTP-2018-Exploring-Evolvable-Specificity-with-SignalGP/analysis/stats.html), we address the following questions:
 - How important is imprecision when evolving programs that make use of evolvable names (i.e. tag-based referencing)? 
   - Spoiler: Allowing for some imprecision is crucial. Exact name matching does not perform well.
 - And, are there scenarios where requiring _some_ precision is necessary when making tag-based references?
