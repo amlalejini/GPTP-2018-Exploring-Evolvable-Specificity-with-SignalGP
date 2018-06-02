@@ -31,8 +31,8 @@ How important is that _inexactness_ when evolving programs that make use of evol
 
 ## What did we do?
 In this work, we make two primary contributions:
-1) We use SignalGP to explore the role of inexactness in tag-based referencing. How important is imprecision when evolving programs that make use of evolvable names (i.e. tag-based referencing)? And, are there scenarios where requiring _some_ precision is necessary when making tag-based references? 
-2) We discuss three major extensions to SignalGP that are facilitated by tag-based referencing. 
+1. We use SignalGP to explore the role of inexactness in tag-based referencing. How important is imprecision when evolving programs that make use of evolvable names (i.e. tag-based referencing)? And, are there scenarios where requiring _some_ precision is necessary when making tag-based references? 
+2. We discuss three major extensions to SignalGP that are facilitated by tag-based referencing. 
 
 ### 1) Exploring the role of inexactness in tag-based referencing.
 To explore role of inexactness in tag-based referencing, we performed performed experiments where we evolved populations of SignalGP agents to solve the changing environment problem and the distracting environment problem. 
@@ -42,11 +42,11 @@ To explore role of inexactness in tag-based referencing, we performed performed 
 
 ### 2) What else is in an evolved name? Extensions to SignalGP made possible by the evolvable specificity afforded by tag-based referencing. 
 We discuss three major extensions to SignalGP:
-1) SignalGP Function Regulation
+1. SignalGP Function Regulation
     - We can incorporate regulatory instructions that can down- or up-regulate SignalGP functions, altering regulated functions' chances of being referenced by tags. 
-2) Multi-representation SignalGP
+2. Multi-representation SignalGP
     - SignalGP functions are black boxes that can contain arbitrary computational substrates, allowing multiple representations to be employed within a single agent.
-3) Major transitions in SignalGP (i.e. hierarchically organized SignalGP programs)
+3. Major transitions in SignalGP (i.e. hierarchically organized SignalGP programs)
     - SignalGP functions can contain entire SignalGP agents!
 
 
