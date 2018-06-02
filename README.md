@@ -1,3 +1,5 @@
+[![DOI](https://zenodo.org/badge/125904652.svg)](https://zenodo.org/badge/latestdoi/125904652)
+
 ## Overview
 This repository is associated with our 2018 Genetic Programming Theory and Practice (GPTP) workshop contribution, citation pending. 
 
