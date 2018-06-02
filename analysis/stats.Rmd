@@ -10,10 +10,10 @@ output:
   pdf_document: default
 ---
 ## Overview
-Here, we analyze our experimental results from our 2018 GPTP contribution "What's in an evolved name? Exploring evolvable specificity with SignalGP ([citation to come]). In this work, we use SignalGP to explore how important allowing for inexact matching is in tag-based referencing. 
+Here, we analyze our experimental results from our 2018 GPTP contribution "What's in an evolved name? Exploring evolvable specificity with SignalGP" ([citation to come]). In this work, we use SignalGP to explore how important allowing for inexact matching is in tag-based referencing. 
 
 ## Dependencies & General Setup
-We used `r version["version.string"]` for statistical analyses.
+We used `r version["version.string"]` for statistical analyses (R Core Team, 2016).
 
 All Dunn's tests were performed using the FSA package (Ogle, 2017). 
 ```{r, echo=TRUE}
@@ -31,7 +31,7 @@ Make sure R markdown is using the reticulate Python engine.
 knitr::knit_engines$set(python = reticulate::eng_python)
 ```
 
-All visualizations use the seaborn Python package ([CITE]), which sits on top of Python's matplotlib, providing a "high-level interface for drawing attractive statistical graphics". 
+All visualizations use the seaborn Python package (Waskom et al, 2017), which sits on top of Python's matplotlib, providing a "high-level interface for drawing attractive statistical graphics". 
 ```{python}
 import seaborn as sns
 import matplotlib.pyplot as plt
@@ -44,25 +44,25 @@ import pandas as pd
 ```
 
 ## A little bit of background. 
-Again, see the paper [CITE] for context on these data analyses, but here's some high-level background. 
+Again, see the paper (citation to come) for context on these data analyses, but here's some high-level background. 
 
 ### Briefly, tag-based referencing. 
-What's in an evolved name? How should modules (e.g. functions, sub-routines, data-objects, etc) be referenced in evolving programs? In traditional software development, the programmer hand-labels modules and subsequently refers to them using their assigned label. This technique for referencing modules is intentionally rigid, requiring programmers to precisely name the module they aim to reference; imprecision often results in syntactic incorrectness. Requiring evolving programs to follow traditional approaches to module referencing is not ideal: mutation operators must do extra work to guarantee label-correctness, else mutated programs are likely to make use of undefined labels, resulting in syntactic invalidity [(Spector et al., 2011a)]. Instead, is genetic programming (GP) better off relying on more flexible, less exacting referencing schemes?
+What's in an evolved name? How should modules (e.g. functions, sub-routines, data-objects, etc) be referenced in evolving programs? In traditional software development, the programmer hand-labels modules and subsequently refers to them using their assigned label. This technique for referencing modules is intentionally rigid, requiring programmers to precisely name the module they aim to reference; imprecision often results in syntactic incorrectness. Requiring evolving programs to follow traditional approaches to module referencing is not ideal: mutation operators must do extra work to guarantee label-correctness, else mutated programs are likely to make use of undefined labels, resulting in syntactic invalidity (Spector et al., 2011a). Instead, is genetic programming (GP) better off relying on more flexible, less exacting referencing schemes?
 
-**Enter: tag-based referencing.** Spector et [CITE] Spector et al., 2011b,a, 2012) introduced and demonstrated a tag-based naming scheme for GP where tags are used to name and reference program modules. Tags are evolvable labels that are mutable, and the similarity (or dissimilarity) between any two possible tags is quantifiable. Tags allow for inexact referencing. Because the similarity between tags can be calculated, a referring tag can always link to the program module with the most similar (_i.e._ closest matching) tag; further, this ensures that all possible tags are valid references. Because tags are mutable, evolution can incrementally shape tag-based references within evolving code.
+**Enter: tag-based referencing.** Spector et al (Spector et al., 2011a, 2011b, and 2012) introduced and demonstrated a tag-based naming scheme for GP where tags are used to name and reference program modules. Tags are evolvable labels that are mutable, and the similarity (or dissimilarity) between any two possible tags is quantifiable. Tags allow for inexact referencing. Because the similarity between tags can be calculated, a referring tag can always link to the program module with the most similar (_i.e._ closest matching) tag; further, this ensures that all possible tags are valid references. Because tags are mutable, evolution can incrementally shape tag-based references within evolving code.
 
 In Spector et al.'s original conception of tag-based referencing, if any tagged entity (program module, etc) existed, a referring tag would always have _something_ to reference; there was no minimum similarity requirement for tags to successfully match. In other words, references allowed for _complete_ imprecision. We can, however, put a minimum threshold of similarity on tag-based references: for two tags to be successfully matched, they must be at least X% similar. Reminder: we represent tags as bit strings in our work, using the [simple matching coefficient](https://en.wikipedia.org/wiki/Simple_matching_coefficient) to define the similarity between two tags. 
 
 ### Just tell me what questions you're asking. 
 Okay, okay. Here, we explore the effects of adjusting the minimum required similarity for tags to successfully match for a reference. How important is imprecision when doing tag-based referencing? Is exact name matching (what human programmers usually do) really all that bad for evolution? (**spoiler**: yes!) Is it important to allow for _complete_ inexactness as in Spector et al.'s original work? Or, is it fine to require a minimum threshold of similarity? Are there situations where requiring _some_ amount of precision (_i.e._ a minimum match similarity) is necessary? 
 
-We use evolving populations of SignalGP agents to address these questions. See [CITE] for details on exactly how SignalGP makes use of tag-based referencing. In short, SignalGP labels program modules with tags, and externally-generated or internally-generated can refer to SignalGP program modules via tag-based referencing. 
+We use evolving populations of SignalGP agents to address these questions. See (Lalejini and Ofria, 2018) for details on exactly how SignalGP makes use of tag-based referencing. In short, SignalGP labels program modules with tags, and externally-generated or internally-generated can refer to SignalGP program modules via tag-based referencing. 
 
 ## Experiment 1: How important is inexactness in tag-based referencing?
 How important is imprecision when calling an evolvable name? As discussed above, tag-based referencing has built-in flexibility, not requiring tags to _exactly_ match to successfully reference one another. To explore the importance of inexactness in tag-based referencing, we evolved populations (30 replicates) of SignalGP agents to solve the changing environment problem under nine different conditions where each condition required tags to have a different minimum similarity in order to successfully be matched: 0% (_i.e._, no restrictions on tag-similarity), 12.5%, 25.0%, 37.5%, 50.0%, 62.5%, 75.0%, 87.5%, and 100.0% (_i.e._, tags needed to match exactly). 
 
 ### The Changing Environment Problem
-See [CITE, CITE] for a detailed description of the changing environment problem. The changing environment problem is a toy problem to test GP programs' capacity to respond appropriately to environmental signals. 
+See (Lalejini and Ofria, 2018, and our contribution - citation coming) for a detailed description of the changing environment problem. The changing environment problem is a toy problem to test GP programs' capacity to respond appropriately to environmental signals. 
 
 The changing environment problem requires agents to coordinate their behavior with a randomly changing environment. In these experiments, the environment can be in one of sixteen states at any one time. At the beginning of a run, the environment is initialized to a random state, and at every subsequent time step, the environment has a 12.5% chance of randomly changing. To be successful, agents must match their internal state to the current state of the environment; thus, agents must monitor the environment for changes, adjusting their internal state as appropriate. 
 
@@ -264,9 +264,9 @@ for comp in exp1_10000_dt_results:
 These data support the idea that exact name matching is not very evolvable. In fact, requiring too much precision when calling an evolvable name (doing tag-based referencing) is not ideal. On the flip side, requiring _some_ precision for successful tag-based references is fine (_i.e._, 12.5% through 75% minimum thresholds are not significantly different than a 0.0% threshold). 
 
 ### Exploring the Importance of Inexactness with MAP-Elites
-To further illuminate the space of similarity thresholds for SignalGP in the changing environment problem, we can use the MAP-Elites algorithm [CITE]. In MAP-Elites, a population is structured based on a set of chosen phenotypic traits of evolving solutions. Each chosen phenotypic trait defines an axis on a grid of cells where each cell represents a distinct combination of phenotypic traits; further, each cell maintains only the most fit solution 'discovered' with that cell's associated combination of phenotypic traits. We initialize the map in MAP-Elites by randomly generating a solution and placing it into its appropriate cell in the grid (based on its phenotypic characteristics). From here, we repeatedly select an occupied cell in the grid at random, generate a mutated offspring for that cell's occupant, and figure out where the offspring belongs in the grid; if that cell is empty, place the offspring there, otherwise compare the offspring's fitness to the current occupants, keeping the fitter of the two. We repeat this process for as long as we want, and we eventually end up with a grid of prospective solutions that span the range of the phenotypic traits we defined as our axes. Neat! 
+To further illuminate the space of similarity thresholds for SignalGP in the changing environment problem, we can use the MAP-Elites algorithm (Mauret and Clune, 2015). In MAP-Elites, a population is structured based on a set of chosen phenotypic traits of evolving solutions. Each chosen phenotypic trait defines an axis on a grid of cells where each cell represents a distinct combination of phenotypic traits; further, each cell maintains only the most fit solution 'discovered' with that cell's associated combination of phenotypic traits. We initialize the map in MAP-Elites by randomly generating a solution and placing it into its appropriate cell in the grid (based on its phenotypic characteristics). From here, we repeatedly select an occupied cell in the grid at random, generate a mutated offspring for that cell's occupant, and figure out where the offspring belongs in the grid; if that cell is empty, place the offspring there, otherwise compare the offspring's fitness to the current occupants, keeping the fitter of the two. We repeat this process for as long as we want, and we eventually end up with a grid of prospective solutions that span the range of the phenotypic traits we defined as our axes. Neat! 
 
-We can apply this algorithm to GP (in fact, we have an entire paper on this idea! [CITE]) where phenotypic traits are program characteristics (_e.g._, program length/size, module count, instruction entropy, etc.). Here, we apply MAP-Elites to illuminate the relationship between function count and similarity threshold for SignalGP agents in the context of the changing environment problem. 
+We can apply this algorithm to GP (in fact, we have an entire paper on this idea! [citation to come]) where phenotypic traits are program characteristics (_e.g._, program length/size, module count, instruction entropy, etc.). Here, we apply MAP-Elites to illuminate the relationship between function count and similarity threshold for SignalGP agents in the context of the changing environment problem. 
 
 In our evolution experiment, we locked in the minimum required similarity threshold for each treatment, comparing the performance of agents evolved with different similarity thresholds. For this, we allow the minimum required similarity threshold to evolve between 0.0% and 100.0%. Minimum similarity threshold is one axis of our MAP-Elites grid. In our evolution experiment we capped the allowed number of functions in a SignalGP program at 16. For this, we allow SignalGP programs to have function counts ranging from 0 to 32. The number of functions an agent uses (i.e., actually gets executed) is our second axis for our MAP-Elites grid. 
 
@@ -413,6 +413,8 @@ for comp in exp2_1000_dt_results:
     print(comp["comparison"])
 ```
 
+In general, the 75% treatment is significantly better than all other treatments, and the 100.0% (exact matching) treatment is significantly worse than all other treatments. 
+
 #### Results after 10,000 generations of evolution.
 Let's take a look at how things are doing at the end of the runs: generation 10,000! 
 ```{r}
@@ -486,6 +488,10 @@ for comp in exp2_10000_dt_results:
     print(comp["comparison"])
 ```
 
+The statistical results confirm what we were seeing in the box plot. The 75% treatment and 87.5% treatment produce significantly better performing agents than all other treatments, and exact name matching is still terrible. In fact, only 75% and 87.5% treatments produced _any_ optimal programs. 
+
+This supports the idea that _some_ amount of precision when making tag-based referencing can be important for certain classes of problems; though, allowing for _some_ inexactness is still important, requiring exact name matching is not particularly evolvable. 
+
 ### Exploring the importance of _some_ precision with MAP-Elites.
 We'll use MAP-Elites for the distracting environment problem in the same way we used it for the changing enviroment problem. 
 
@@ -526,11 +532,21 @@ with sns.axes_style("white"):
 plt.show()
 ```
 
+This heatmap is very neat. It confirms our intuitions about the solution space in the distracting environment problem, showing that many strategies exist with around 32 functions where dummy do-nothing functions can consume distraction signals. There are solutions that use only 16 functions, but they exist only at high minimum similarity thresholds. And, there are a number of solutions that use a combination of extra do-nothing functions and referencing precision to successfully ignore distraction signals. 
 
 ## References
+Lalejini, A., & Ofria, C. (2018). Evolving Event-driven Programs with SignalGP. In Proceedings of the Genetic and Evolutionary Computation Conference. ACM. https://doi.org/10.1145/3205455.3205523
+
+Mouret, J., & Clune, J. (2015). Illuminating search spaces by mapping elites, 1–15. Retrieved from http://arxiv.org/abs/1504.04909
 
 Ogle, D.H. 2017. FSA: Fisheries Stock Analysis. R package version 0.8.17.
 
 R Core Team (2016). R: A language and environment for statistical computing. R Foundation for Statistical Computing, Vienna, Austria. URL https://www.R-project.org/.
+
+Spector, L., Harringtion, K., Martin, B., & Helmuth, T. (2011a). What’s in an Evolved Name? The Evolution of Modularity via Tag-Based Reference. In R. Riolo, E. Vladislavleva, & J. H. Moore (Eds.), Genetic Programming Theory and Practice IX (pp. 1–16). New York, NY: Springer New York. https://doi.org/10.1007/978-1-4614-1770-5
+
+Spector, L., Martin, B., Harrington, K., & Helmuth, T. (2011b). Tag-based modules in genetic programming. GECCO ’11: Proceedings of the 13th Annual Conference on Genetic and Evolutionary Computation, 1419–1426. https://doi.org/doi:10.1145/2001576.2001767
+
+Spector, L., Harrington, K., & Helmuth, T. (2012). Tag-based modularity in tree-based genetic programming. GECCO ’12: Proceedings of the Fourteenth International Conference on Genetic and Evolutionary Computation Conference, 815–822. https://doi.org/doi:10.1145/2330163.2330276
 
 Michael Waskom, Olga Botvinnik, Drew O'Kane, Paul Hobson, Saulius Lukauskas, David C Gemperline, … Adel Qalieh. (2017, September 3). mwaskom/seaborn: v0.8.1 (September 2017) (Version v0.8.1). Zenodo. http://doi.org/10.5281/zenodo.883859
