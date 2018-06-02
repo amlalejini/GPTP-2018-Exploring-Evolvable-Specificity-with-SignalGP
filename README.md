@@ -6,8 +6,8 @@ Spector et al. explored the use of tag-based naming for evolving modular program
 In addition to experimentally investigating the importance of inexactness when employing tag-based referencing, we discuss three major extensions to SignalGP that are facilitated by tag-based referencing: SignalGP function regulation, multi-representation SignalGP, and major transitions in individuality with SignalGP. 
 
 ### Contribution Authors:
-- [Alexander Lalejini](lalejini.com)
-- [Charles Ofria](ofria.com)
+- [Alexander Lalejini](http://lalejini.com)
+- [Charles Ofria](http://ofria.com)
 
 ### Abstract
 > What else is in an evolved name? In this chapter, we continue to explore tag-based naming with SignalGP. 
