@@ -486,7 +486,7 @@ for comp in exp2_10000_dt_results:
     print(comp["comparison"])
 ```
 
-#### Exploring the importance of _some_ precision with MAP-Elites.
+### Exploring the importance of _some_ precision with MAP-Elites.
 We'll use MAP-Elites for the distracting environment problem in the same way we used it for the changing enviroment problem. 
 
 We've already loaded and filtered the relevant data by fitness. We just need to filter down to distracting environment problem MAPE-Elites data.
