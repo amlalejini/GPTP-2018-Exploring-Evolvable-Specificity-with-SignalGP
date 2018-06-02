@@ -27,15 +27,27 @@ From the paper:
 **Enter: tag-based referencing**. 
 Spector et [CITE] Spector et al., 2011b,a, 2012) introduced and demonstrated a tag-based naming scheme for GP where tags are used to name and reference program modules. Tags are evolvable labels that are mutable, and the similarity (or dissimilarity) between any two possible tags is quantifiable. Tags allow for inexact referencing. Because the similarity between tags can be calculated, a referring tag can always link to the program module with the most similar (i.e. closest matching) tag; further, this ensures that all possible tags are valid references. Because tags are mutable, evolution can incrementally shape tag-based references within evolving code.
 
-How important is inexactness 
+How important is that _inexactness_ when evolving programs that make use of evolvable names (i.e. tag-based referencing)? And, are there scenarios where requiring _some_ exactness is necessary when making tag-based references? 
 
 ## What did we do?
+In this work, we make two primary contributions:
+1) We use SignalGP to explore the role of inexactness in tag-based referencing. How important is imprecision when evolving programs that make use of evolvable names (i.e. tag-based referencing)? And, are there scenarios where requiring _some_ precision is necessary when making tag-based references? 
+2) We discuss three major extensions to SignalGP that are facilitated by tag-based referencing. 
 
-### Exploring the role of inexactness in tag-based referencing.
+### 1) Exploring the role of inexactness in tag-based referencing.
+To explore role of inexactness in tag-based referencing, we performed performed experiments where we evolved populations of SignalGP agents to solve the changing environment problem and the distracting environment problem. 
 
-[link](stats/stats.html)
+**For more details, including data visualizations and analyses, see [our data analysis write-up](analysis/stats.html).**
 
-### What else is in an evolved name? Extensions to SignalGP made possible by the evolvable specificity afforded by tag-based referencing. 
+
+### 2) What else is in an evolved name? Extensions to SignalGP made possible by the evolvable specificity afforded by tag-based referencing. 
+We discuss three major extensions to SignalGP:
+1) SignalGP Function Regulation
+    - We can incorporate regulatory instructions that can down- or up-regulate SignalGP functions, altering regulated functions' chances of being referenced by tags. 
+2) Multi-representation SignalGP
+    - SignalGP functions are black boxes that can contain arbitrary computational substrates, allowing multiple representations to be employed within a single agent.
+3) Major transitions in SignalGP (i.e. hierarchically organized SignalGP programs)
+    - SignalGP functions can contain entire SignalGP agents!
 
 
 ### References
