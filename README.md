@@ -17,6 +17,11 @@ In addition to experimentally investigating the importance of inexactness when e
 > SignalGP is a GP technique designed to give evolution direct access to the event-driven paradigm where programs are organized as sets of modules, and signals (e.g. from the environment or from other agents) can trigger the execution of modules. SignalGP uses tag-based naming to determine which module is triggered in response to an event. 
 > We use SignalGP to explore the importance of inexactness in tag-based referencing. Additionally, we discuss broadened applications of tag-based naming in the context of SignalGP.
 
+## Experiment Source Code
+The source code for all experiments performed in this contribution can be found in [./chg_env/source](./chg_env/source). 
+
+The compiling/running the experiments require the [Empirical library](https://github.com/devosoft/Empirical).
+
 ## Experimental Results and Analyses
 A fully detailed data analysis for the experiments associated with this contribution can be found [**here**](analysis/stats.html). 
 
