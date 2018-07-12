@@ -3,7 +3,7 @@
 ## Navigation
 
 - [Repository Overview](#overview)
-- [About SignalGP](#what-is-signalGP?)
+- [About SignalGP](#what-is-signalgp?)
   - [Experiment Instruction Set](#instruction-set)
 - [Experiment Source Code](#experiment-source-code)
 - [Data Analyses (statistical details, *etc.*)](#experimental-results-and-data-analyses)
