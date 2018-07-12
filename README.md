@@ -8,9 +8,9 @@
 - [Experiment Source Code](#experiment-source-code)
 - [Data Analyses (statistical details, *etc.*)](#experimental-results-and-data-analyses)
 - [Proposed Extensions to SignalGP](#signalGP-extensions)
-  - [Function regulation](function-regulation)
-  - [Multi-representation SignalGP](multi-representation-signalgp)
-  - [Major transitions in individuality with SignalGP](major-transitions-in-individuality-with-signalgp)
+  - [Function regulation](#function-regulation)
+  - [Multi-representation SignalGP](#multi-representation-signalgp)
+  - [Major transitions in individuality with SignalGP](#major-transitions-in-individuality-with-signalgp)
 - [GPTP Workshop Presentation](#workshop-presentation)
 - [Document References](#references)
 
