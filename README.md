@@ -29,12 +29,7 @@ In addition to experimentally investigating the importance of inexactness when e
 
 ### Abstract
 
-> What else is in an evolved name? In this chapter, we continue to explore tag-based naming with SignalGP.
-> Tags are evolvable labels that provide genetic programming (GP) a flexible mechanism for specification.
-> Tags are used to label and refer to programmatic elements (e.g. code fragments).
-> However, tags differ from traditional, more rigid methods for labeling programmatic elements because they allow for _inexact_ references (i.e. a referring tag need not _exactly_ match its referent).
-> SignalGP is a GP technique designed to give evolution direct access to the event-driven paradigm where programs are organized as sets of modules, and signals (e.g. from the environment or from other agents) can trigger the execution of modules. SignalGP uses tag-based naming to determine which module is triggered in response to an event.
-> We use SignalGP to explore the importance of inexactness in tag-based referencing. Additionally, we discuss broadened applications of tag-based naming in the context of SignalGP.
+> Tags are evolvable labels that provide genetic programs a flexible mechanism for specification. Tags are used to label and refer to programmatic elements, such as functions or jump targets. However, tags differ from traditional, more rigid methods for handling labeling because they allow for *inexact* references; that is, a referring tag need not *exactly* match its referent. Here, we explore how adjusting the threshold for how what qualifies as a match affects adaptive evolution. Further, we propose broadened applications of tags in the context of a genetic programming (GP) technique called SignalGP. SignalGP gives evolution direct access to the event-driven paradigm. Program modules in SignalGP are tagged and can be triggered by signals (with matching tags) from the environment, from other agents, or due to internal regulation. Specifically, we propose to extend this tag based system to: (1) provide more fine-grained control over module execution and regulation (*e.g.*, promotion and repression) akin to natural gene regulatory networks, (2) employ a mosaic of GP representations within a single program, and (3) facilitate major evolutionary transitions in individuality (*i.e.*, allow hierarchical program organization to evolve *de novo*).
 
 ## What is SignalGP?
 
