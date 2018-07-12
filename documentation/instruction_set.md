@@ -56,6 +56,8 @@ Below is a table describing the set of standard SignalGP instructions included i
 
 ## Experiment-Specific Instructions
 
+Below is a table describing instructions used in our experiments that are specific to both the changing environment and distracting environment problems.
+
 | Instruction   | # Arguments | Uses Tag? | Description |
 | :---          | :---:       | :---:     | :---        |
 | Terminate     | 0           | No | Kill thread `Terminate` is executed on |
