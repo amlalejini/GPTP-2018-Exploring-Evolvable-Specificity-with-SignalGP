@@ -8,6 +8,9 @@
 - [Experiment Source Code](#experiment-source-code)
 - [Data Analyses (statistical details, *etc.*)](#experimental-results-and-data-analyses)
 - [Proposed Extensions to SignalGP](#signalGP-extensions)
+  - [Function regulation](function-regulation)
+  - [Multi-representation SignalGP](multi-representation-signalgp)
+  - [Major transitions in individuality with SignalGP](major-transitions-in-individuality-with-signalgp)
 - [GPTP Workshop Presentation](#workshop-presentation)
 - [Document References](#references)
 
@@ -52,9 +55,6 @@ The source code for all experiments performed in this contribution can be found 
 
 The compiling/running the experiments require the [Empirical library](https://github.com/devosoft/Empirical).
 
-## Experiment Configuration Details
-
-
 ## Experimental Results and Data Analyses
 
 Our experiments address the following questions:
@@ -63,6 +63,8 @@ Our experiments address the following questions:
   - Spoiler: Allowing for some imprecision is crucial. Exact name matching does not perform well.
 - And, are there scenarios where requiring _some_ precision is necessary when making tag-based references?
   - Spoiler: Yes, when genetic programs need the capacity to _ignore_ references, requiring some minimum precision (tag-similarity) for tag-based references is important.
+
+### Data Analyses
 
 [A fully detailed data analysis for the experiments associated with this contribution can be found **here**](http://lalejini.com/GPTP-2018-Exploring-Evolvable-Specificity-with-SignalGP/analysis/stats.html).
 
