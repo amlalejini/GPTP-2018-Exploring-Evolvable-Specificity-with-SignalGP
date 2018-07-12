@@ -100,8 +100,8 @@ My presentation from the 2018 GPTP workshop can be found [here](https://docs.goo
 
 ## References
 
-Lalejini, A., & Ofria, C. (2018). Evolving Event-driven Programs with SignalGP. In Proceedings of the Genetic and Evolutionary Computation Conference. ACM. https://doi.org/10.1145/3205455.3205523
+Lalejini, A., & Ofria, C. (2018). Evolving Event-driven Programs with SignalGP. In Proceedings of the Genetic and Evolutionary Computation Conference. ACM. [https://doi.org/10.1145/3205455.3205523](https://doi.org/10.1145/3205455.3205523)
 
-Spector, L., Harringtion, K., Martin, B., & Helmuth, T. (2011a). What’s in an Evolved Name? The Evolution of Modularity via Tag-Based Reference. In R. Riolo, E. Vladislavleva, & J. H. Moore (Eds.), Genetic Programming Theory and Practice IX (pp. 1–16). New York, NY: Springer New York. https://doi.org/10.1007/978-1-4614-1770-5
+Spector, L., Harringtion, K., Martin, B., & Helmuth, T. (2011a). What’s in an Evolved Name? The Evolution of Modularity via Tag-Based Reference. In R. Riolo, E. Vladislavleva, & J. H. Moore (Eds.), Genetic Programming Theory and Practice IX (pp. 1–16). New York, NY: Springer New York. [https://doi.org/10.1007/978-1-4614-1770-5](https://doi.org/10.1007/978-1-4614-1770-5)
 
-Spector, L., Martin, B., Harrington, K., & Helmuth, T. (2011b). Tag-based modules in genetic programming. GECCO ’11: Proceedings of the 13th Annual Conference on Genetic and Evolutionary Computation, 1419–1426. https://doi.org/doi:10.1145/2001576.2001767
+Spector, L., Martin, B., Harrington, K., & Helmuth, T. (2011b). Tag-based modules in genetic programming. GECCO ’11: Proceedings of the 13th Annual Conference on Genetic and Evolutionary Computation, 1419–1426. [https://doi.org/doi:10.1145/2001576.2001767](https://doi.org/doi:10.1145/2001576.2001767)
