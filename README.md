@@ -5,8 +5,10 @@
 - [Repository Overview](#overview)
 - [About SignalGP](#what-is-signalgp)
   - [Experiment Instruction Set](#instruction-set)
-- [Experiment Source Code](#experiment-source-code)
-- [Data Analyses (statistical details, *etc.*)](#experimental-results-and-data-analyses)
+- [Experiment Details](#experiment-details)
+  - [Source Code](#source-code)
+  - [SignalGP Program Solutions for Experiment Problems](#signalgp-program-solutions-for-experiment-problems)
+  - [Data Analyses (statistical details, *etc.*)](#data-analyses)
 - [Proposed Extensions to SignalGP](#signalGP-extensions)
   - [Function regulation](#function-regulation)
   - [Multi-representation SignalGP](#multi-representation-signalgp)
@@ -44,13 +46,7 @@ In this work and in prior work, we use SignalGP in the context of linear GP (LGP
 
 The SignalGP instruction set we used for this work can be found here: [http://lalejini.com/GPTP-2018-Exploring-Evolvable-Specificity-with-SignalGP/documentation/instruction_set](http://lalejini.com/GPTP-2018-Exploring-Evolvable-Specificity-with-SignalGP/documentation/instruction_set).
 
-## Experimental Source Code
-
-The source code for all experiments performed in this contribution can be found in [./chg_env/source](./chg_env/source).
-
-The compiling/running the experiments require the [Empirical library](https://github.com/devosoft/Empirical).
-
-## Experimental Results and Data Analyses
+## Experiment Details
 
 Our experiments address the following questions:
 
@@ -59,7 +55,20 @@ Our experiments address the following questions:
 - And, are there scenarios where requiring _some_ precision is necessary when making tag-based references?
   - Spoiler: Yes, when genetic programs need the capacity to _ignore_ references, requiring some minimum precision (tag-similarity) for tag-based references is important.
 
+### Source Code
+
+The source code for all experiments performed in this contribution can be found in this repository: [./chg_env/source](https://github.com/amlalejini/GPTP-2018-Exploring-Evolvable-Specificity-with-SignalGP/tree/master/chg_env).
+
+The compiling/running the experiments require the [Empirical library](https://github.com/devosoft/Empirical).
+
+### SignalGP Program Solutions for Experiment Problems
+
+Example SignalGP program solutions for the two test problems used for our experiments
+can be found here: [http://lalejini.com/GPTP-2018-Exploring-Evolvable-Specificity-with-SignalGP/documentation/example_solutions](http://lalejini.com/GPTP-2018-Exploring-Evolvable-Specificity-with-SignalGP/documentation/example_solutions).
+
 ### Data Analyses
+
+Our data can be found in this repository: [https://github.com/amlalejini/GPTP-2018-Exploring-Evolvable-Specificity-with-SignalGP/tree/master/data](https://github.com/amlalejini/GPTP-2018-Exploring-Evolvable-Specificity-with-SignalGP/tree/master/data)
 
 [A fully detailed data analysis for the experiments associated with this contribution can be found **here**](http://lalejini.com/GPTP-2018-Exploring-Evolvable-Specificity-with-SignalGP/analysis/stats.html).
 
