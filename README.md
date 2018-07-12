@@ -3,12 +3,12 @@
 ## Navigation
 
 - [Repository Overview](#Overview)
-- [About SignalGP](#What\ is\ SignalGP?)
-  - [Experiment Instruction Set](#Instruction\ Set)
-- [Experiment Source Code](#Experiment\ Source\ Code)
-- [Data Analyses (statistical details, *etc.*)](#Experimental\ Results\ and\ Data\ Analyses)
-- [Proposed Extensions to SignalGP](#SignalGP\ Extensions)
-- [GPTP Workshop Presentation](#Workshop\ Presentation)
+- [About SignalGP](#What-is-SignalGP?)
+  - [Experiment Instruction Set](#Instruction-Set)
+- [Experiment Source Code](#Experiment-Source-Code)
+- [Data Analyses (statistical details, *etc.*)](#Experimental-Results-and-Data-Analyses)
+- [Proposed Extensions to SignalGP](#SignalGP-Extensions)
+- [GPTP Workshop Presentation](#Workshop-Presentation)
 - [Document References](#References)
 
 ## Overview
