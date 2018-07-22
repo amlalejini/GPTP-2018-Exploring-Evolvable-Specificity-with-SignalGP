@@ -15,11 +15,6 @@ Here, we analyze our experimental results from our 2018 GPTP contribution "What'
 ## Dependencies & General Setup
 We used `r version["version.string"]` for statistical analyses (R Core Team, 2016).
 
-All Dunn's tests were performed using the FSA package (Ogle, 2017). 
-```{r, echo=TRUE}
-library(FSA)
-```
-
 In addition to R, we use Python 3 for data manipulation and visualization (because Python!). To get Python and R to play nice, we use the [reticulate](https://rstudio.github.io/reticulate/index.html) R package. 
 ```{r}
 library(reticulate)
@@ -76,7 +71,7 @@ For each generation analyzed, we compared the performances of evolved, dominant 
 sig_level <- 0.05
 ```
 
-To determine if any of the treatments were significant (_p_ < `sig_level`) for a given generation, we performed a [Kruskal-Wallis rank sum test](https://en.wikipedia.org/wiki/Kruskal%E2%80%93Wallis_one-way_analysis_of_variance). For a generation in which the Kruskal-Wallis test was significant, we performed a post-hoc Dunn's test, applying a Bonferroni correction for multiple comparisons. 
+To determine if any of the treatments were significant (_p_ < `sig_level`) for a given generation, we performed a [Kruskal-Wallis rank sum test](https://en.wikipedia.org/wiki/Kruskal%E2%80%93Wallis_one-way_analysis_of_variance). For a generation in which the Kruskal-Wallis test was significant, we performed a post-hoc pairwise Wilcoxon rank-sum test, applying a Bonferroni correction for multiple comparisons.
 
 ### Results
 Finally, enough with all of those long-winded explanations! Results! 
@@ -87,7 +82,7 @@ We'll go ahead and load evolution data with R.
 evo_data <- read.csv("../data/evo_dom.csv")
 ```
 
-That evo_dom file has spoiler data in! I.e., it has the data for both Experiment 1 and Experiment 2 described in this document. Let's filter down to just the data relevant to Experiment 1. 
+That evo_dom file has spoiler data in it! I.e., it has the data for both Experiment 1 and Experiment 2 described in this document. Let's filter down to just the data relevant to Experiment 1. 
 ```{r}
 exp1_data <- evo_data[evo_data$distraction_sigs == 0,]
 exp1_data$sim_thresh <- as.factor(exp1_data$sim_thresh)
@@ -155,34 +150,10 @@ exp1_1000_kt <- kruskal.test(fitness ~ sim_thresh, data=exp1_1000_data)
 exp1_1000_kt
 ```
 
-As expected, the Kruskal-Wallis test comes out significant. Let's do a post-hoc Dunn's test to analyze which treatments are significantly different from one another. 
+As expected, the Kruskal-Wallis test comes out significant. Let's do a post-hoc pairwise Wilcoxon rank-sum test to analyze which treatments are significantly different from one another.
 ```{r, echo=TRUE}
-exp1_1000_dt <- dunnTest(fitness ~ sim_thresh, data=exp1_1000_data, method="bonferroni")
-exp1_1000_dt
-```
-
-Woah! That's a big wall of stats! Let's write a little bit of code to pull out the significant relationships. Because I like Python, I'll do the pulling in Python, but first, some R to make things easier on the Python side. 
-```{r}
-exp1_1000_dt_comp <- exp1_1000_dt$res$Comparison
-exp1_1000_dt_padj <- exp1_1000_dt$res$P.adj
-exp1_1000_dt_z <- exp1_1000_dt$res$Z
-```
-Now, Python!
-```{python}
-# Combine all of the dunn test results into a more useful data structure.
-exp1_1000_dt_results = [{"comparison": r.exp1_1000_dt_comp[i], "p-value": r.exp1_1000_dt_padj[i], "z": r.exp1_1000_dt_z[i], "sig": r.exp1_1000_dt_padj[i] < r.sig_level} for i in range(0, len(r.exp1_1000_dt_comp))]
-```
-Here are the treatments with significant differences:
-```{python}
-for comp in exp1_1000_dt_results:
-  if comp["sig"]:
-    print(comp["comparison"])
-```
-Here are all the treatments with no significant differences:
-```{python}
-for comp in exp1_1000_dt_results:
-  if not comp["sig"]:
-    print(comp["comparison"])
+exp1_1000_wt <- pairwise.wilcox.test(x=exp1_1000_data$fitness, g=exp1_1000_data$sim_thresh, p.adjust.method="bonferroni", exact=FALSE)
+exp1_1000_wt
 ```
 
 In general, the two treatments with the highest minimum similarity thresholds (87.5% and 100.0%) seem to be worse than the others, while (in general) there aren't real differences between the others. Let's move on to the end of the run. 
@@ -232,33 +203,10 @@ exp1_10000_kt <- kruskal.test(fitness ~ sim_thresh, data=exp1_10000_data)
 exp1_10000_kt
 ```
 
-As expected, the Kruskal-Wallis test comes out significant. Let's do a post-hoc Dunn's test to analyze which treatments are significantly different from one another. 
+As expected, the Kruskal-Wallis test comes out significant. Let's do a post-hoc pairwise Wilcoxon rank-sum test to analyze which treatments are significantly different from one another.
 ```{r, echo=TRUE}
-exp1_10000_dt <- dunnTest(fitness ~ sim_thresh, data=exp1_10000_data, method="bonferroni")
-exp1_10000_dt
-```
-
-Let's write a little bit of code to pull out the significant relationships. Again, some R code then some Python code.
-```{r}
-exp1_10000_dt_comp <- exp1_10000_dt$res$Comparison
-exp1_10000_dt_padj <- exp1_10000_dt$res$P.adj
-exp1_10000_dt_z <- exp1_10000_dt$res$Z
-```
-```{python}
-# Combine all of the dunn test results into a more useful data structure.
-exp1_10000_dt_results = [{"comparison": r.exp1_10000_dt_comp[i], "p-value": r.exp1_10000_dt_padj[i], "z": r.exp1_10000_dt_z[i], "sig": r.exp1_10000_dt_padj[i] < r.sig_level} for i in range(0, len(r.exp1_10000_dt_comp))]
-```
-Here are the treatments with significant differences: [TODO: make this a heatmap]
-```{python}
-for comp in exp1_10000_dt_results:
-  if comp["sig"]:
-    print(comp["comparison"])
-```
-Here are all the treatments with no significant differences:
-```{python}
-for comp in exp1_10000_dt_results:
-  if not comp["sig"]:
-    print(comp["comparison"])
+exp1_10000_wt <- pairwise.wilcox.test(x=exp1_10000_data$fitness, g=exp1_10000_data$sim_thresh, p.adjust.method="bonferroni", exact=FALSE)
+exp1_10000_wt
 ```
 
 These data support the idea that exact name matching is not very evolvable. In fact, requiring too much precision when calling an evolvable name (doing tag-based referencing) is not ideal. On the flip side, requiring _some_ precision for successful tag-based references is fine (_i.e._, 12.5% through 75% minimum thresholds are not significantly different than a 0.0% threshold). 
@@ -384,34 +332,13 @@ exp2_1000_kt <- kruskal.test(fitness ~ sim_thresh, data=exp2_1000_data)
 exp2_1000_kt
 ```
 
-As expected, the Kruskal-Wallis test is significant. Next, let's do a post-hoc Dunn's test to analyze which treatments are statistically different. 
-```{r}
-exp2_1000_dt <- dunnTest(fitness ~ sim_thresh, data=exp2_1000_data, method="bonferroni")
-exp2_1000_dt
-```
-As before, let's write some R/Python code to pull out significant vs. not significant relationships. 
-```{r}
-exp2_1000_dt_comp <- exp2_1000_dt$res$Comparison
-exp2_1000_dt_padj <- exp2_1000_dt$res$P.adj
-exp2_1000_dt_z <- exp2_1000_dt$res$Z
-```
-```{python}
-# Combine all the dunn test results into a useful python data structure.
-exp2_1000_dt_results = [{"comparison": r.exp2_1000_dt_comp[i], "p-value": r.exp2_1000_dt_padj[i], "z": r.exp2_1000_dt_z[i], "sig": r.exp2_1000_dt_padj[i] < r.sig_level} for i in range(0, len(r.exp2_1000_dt_comp))]
-```
-Treatments with significant differences:
-```{python}
-for comp in exp2_1000_dt_results:
-  if comp["sig"]:
-    print(comp["comparison"])
+
+As expected, the Kruskal-Wallis test comes out significant. Let's do a post-hoc pairwise Wilcoxon rank-sum test to analyze which treatments are significantly different from one another.
+```{r, echo=TRUE}
+exp2_1000_wt <- pairwise.wilcox.test(x=exp2_1000_data$fitness, g=exp2_1000_data$sim_thresh, p.adjust.method="bonferroni", exact=FALSE)
+exp2_1000_wt
 ```
 
-Treatments that are not significantly different:
-```{python}
-for comp in exp2_1000_dt_results:
-  if not comp["sig"]:
-    print(comp["comparison"])
-```
 
 In general, the 75% treatment is significantly better than all other treatments, and the 100.0% (exact matching) treatment is significantly worse than all other treatments. 
 
@@ -458,34 +385,11 @@ exp2_10000_kt <- kruskal.test(fitness ~ sim_thresh, data=exp2_10000_data)
 exp2_10000_kt
 ```
 
-As expected from looking at the visualiztion, the Kruskal-Wallis test is significant. Next let's do a post-hoc Dunn's test to analyze which treatments are different. 
-```{r}
-exp2_10000_dt <- dunnTest(fitness ~ sim_thresh, data=exp2_10000_data, method="bonferroni")
-exp2_10000_dt
-```
 
-Again, some Python/R code to pull out significantly different treatments.
-```{r}
-exp2_10000_dt_comp <- exp2_10000_dt$res$Comparison
-exp2_10000_dt_padj <- exp2_10000_dt$res$P.adj
-exp2_10000_dt_z <- exp2_10000_dt$res$Z
-```
-```{python}
-# Combine all the dunn test results into a useful python data structure.
-exp2_10000_dt_results = [{"comparison": r.exp2_10000_dt_comp[i], "p-value": r.exp2_10000_dt_padj[i], "z": r.exp2_10000_dt_z[i], "sig": r.exp2_10000_dt_padj[i] < r.sig_level} for i in range(0, len(r.exp2_10000_dt_comp))]
-```
-Treatments with significant differences:
-```{python}
-for comp in exp2_10000_dt_results:
-  if comp["sig"]:
-    print(comp["comparison"])
-```
-
-Treatments that are not significantly different:
-```{python}
-for comp in exp2_10000_dt_results:
-  if not comp["sig"]:
-    print(comp["comparison"])
+As expected, the Kruskal-Wallis test comes out significant. Let's do a post-hoc pairwise Wilcoxon rank-sum test to analyze which treatments are significantly different from one another.
+```{r, echo=TRUE}
+exp2_10000_wt <- pairwise.wilcox.test(x=exp2_10000_data$fitness, g=exp2_10000_data$sim_thresh, p.adjust.method="bonferroni", exact=FALSE)
+exp2_10000_wt
 ```
 
 The statistical results confirm what we were seeing in the box plot. The 75% treatment and 87.5% treatment produce significantly better performing agents than all other treatments, and exact name matching is still terrible. In fact, only 75% and 87.5% treatments produced _any_ optimal programs. 

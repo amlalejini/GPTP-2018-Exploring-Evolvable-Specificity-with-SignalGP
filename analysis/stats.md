@@ -15,17 +15,6 @@ Here, we analyze our experimental results from our 2018 GPTP contribution "What'
 ## Dependencies & General Setup
 We used R version 3.3.2 (2016-10-31) for statistical analyses (R Core Team, 2016).
 
-All Dunn's tests were performed using the FSA package (Ogle, 2017). 
-
-```r
-library(FSA)
-```
-
-```
-## ## FSA v0.8.20. See citation('FSA') if used in publication.
-## ## Run fishR() for related website and fishR('IFAR') for related book.
-```
-
 In addition to R, we use Python 3 for data manipulation and visualization (because Python!). To get Python and R to play nice, we use the [reticulate](https://rstudio.github.io/reticulate/index.html) R package. 
 
 ```r
@@ -87,7 +76,7 @@ For each generation analyzed, we compared the performances of evolved, dominant 
 sig_level <- 0.05
 ```
 
-To determine if any of the treatments were significant (_p_ < `sig_level`) for a given generation, we performed a [Kruskal-Wallis rank sum test](https://en.wikipedia.org/wiki/Kruskal%E2%80%93Wallis_one-way_analysis_of_variance). For a generation in which the Kruskal-Wallis test was significant, we performed a post-hoc Dunn's test, applying a Bonferroni correction for multiple comparisons. 
+To determine if any of the treatments were significant (_p_ < `sig_level`) for a given generation, we performed a [Kruskal-Wallis rank sum test](https://en.wikipedia.org/wiki/Kruskal%E2%80%93Wallis_one-way_analysis_of_variance). For a generation in which the Kruskal-Wallis test was significant, we performed a post-hoc pairwise Wilcoxon rank-sum test, applying a Bonferroni correction for multiple comparisons.
 
 ### Results
 Finally, enough with all of those long-winded explanations! Results! 
@@ -99,7 +88,7 @@ We'll go ahead and load evolution data with R.
 evo_data <- read.csv("../data/evo_dom.csv")
 ```
 
-That evo_dom file has spoiler data in! I.e., it has the data for both Experiment 1 and Experiment 2 described in this document. Let's filter down to just the data relevant to Experiment 1. 
+That evo_dom file has spoiler data in it! I.e., it has the data for both Experiment 1 and Experiment 2 described in this document. Let's filter down to just the data relevant to Experiment 1. 
 
 ```r
 exp1_data <- evo_data[evo_data$distraction_sigs == 0,]
@@ -115,7 +104,7 @@ exp1_1000_data <- exp1_data[exp1_data$update == 1000,]
 
 **Visualize!** To keep things succinct, I'll keep the Python code under the hood (check out the .Rmd file if you're curious). 
 
-![](stats_files/figure-html/unnamed-chunk-9-1.png)<!-- -->
+![](stats_files/figure-html/unnamed-chunk-8-1.png)<!-- -->
 
 **At a glance:**<br>
 As expected, _exact_ name matching (100.0%) is **bad**. Much worse than any other treatment. And, up to a certain point, the value of the minimum similarity threshold doesn't matter much (_i.e._, 0.0% isn't any different than requiring 50.0%). 
@@ -137,129 +126,30 @@ exp1_1000_kt
 ## Kruskal-Wallis chi-squared = 161.27, df = 8, p-value < 2.2e-16
 ```
 
-As expected, the Kruskal-Wallis test comes out significant. Let's do a post-hoc Dunn's test to analyze which treatments are significantly different from one another. 
+As expected, the Kruskal-Wallis test comes out significant. Let's do a post-hoc pairwise Wilcoxon rank-sum test to analyze which treatments are significantly different from one another.
 
 ```r
-exp1_1000_dt <- dunnTest(fitness ~ sim_thresh, data=exp1_1000_data, method="bonferroni")
-exp1_1000_dt
+exp1_1000_wt <- pairwise.wilcox.test(x=exp1_1000_data$fitness, g=exp1_1000_data$sim_thresh, p.adjust.method="bonferroni", exact=FALSE)
+exp1_1000_wt
 ```
 
 ```
-## Dunn (1964) Kruskal-Wallis multiple comparison
-```
-
-```
-##   p-values adjusted with the Bonferroni method.
-```
-
-```
-##       Comparison           Z      P.unadj        P.adj
-## 1      0 - 0.125 -0.75959350 4.474976e-01 1.000000e+00
-## 2       0 - 0.25 -0.29859299 7.652506e-01 1.000000e+00
-## 3   0.125 - 0.25  0.46100051 6.447982e-01 1.000000e+00
-## 4      0 - 0.375 -1.26288764 2.066296e-01 1.000000e+00
-## 5  0.125 - 0.375 -0.50329413 6.147575e-01 1.000000e+00
-## 6   0.25 - 0.375 -0.96429465 3.348982e-01 1.000000e+00
-## 7        0 - 0.5 -0.49652715 6.195225e-01 1.000000e+00
-## 8    0.125 - 0.5  0.26306635 7.924994e-01 1.000000e+00
-## 9     0.25 - 0.5 -0.19793416 8.430966e-01 1.000000e+00
-## 10   0.375 - 0.5  0.76636048 4.434618e-01 1.000000e+00
-## 11     0 - 0.625 -0.27490856 7.833865e-01 1.000000e+00
-## 12 0.125 - 0.625  0.48468494 6.278999e-01 1.000000e+00
-## 13  0.25 - 0.625  0.02368443 9.811043e-01 1.000000e+00
-## 14 0.375 - 0.625  0.98797907 3.231629e-01 1.000000e+00
-## 15   0.5 - 0.625  0.22161859 8.246108e-01 1.000000e+00
-## 16      0 - 0.75  2.00894718 4.454274e-02 1.000000e+00
-## 17  0.125 - 0.75  2.76854068 5.630796e-03 2.027086e-01
-## 18   0.25 - 0.75  2.30754017 2.102473e-02 7.568901e-01
-## 19  0.375 - 0.75  3.27183481 1.068520e-03 3.846672e-02
-## 20    0.5 - 0.75  2.50547433 1.222873e-02 4.402342e-01
-## 21  0.625 - 0.75  2.28385574 2.238001e-02 8.056804e-01
-## 22     0 - 0.875  5.93548730 2.929740e-09 1.054706e-07
-## 23 0.125 - 0.875  6.69508080 2.155525e-11 7.759890e-10
-## 24  0.25 - 0.875  6.23408029 4.544400e-10 1.635984e-08
-## 25 0.375 - 0.875  7.19837494 6.093440e-13 2.193638e-11
-## 26   0.5 - 0.875  6.43201446 1.259238e-10 4.533255e-09
-## 27 0.625 - 0.875  6.21039586 5.285129e-10 1.902646e-08
-## 28  0.75 - 0.875  3.92654012 8.617652e-05 3.102355e-03
-## 29         0 - 1  7.45805779 8.780716e-14 3.161058e-12
-## 30     0.125 - 1  8.21765130 2.075273e-16 7.470984e-15
-## 31      0.25 - 1  7.75665078 8.720162e-15 3.139258e-13
-## 32     0.375 - 1  8.72094543 2.758884e-18 9.931982e-17
-## 33       0.5 - 1  7.95458495 1.797330e-15 6.470389e-14
-## 34     0.625 - 1  7.73296636 1.050691e-14 3.782487e-13
-## 35      0.75 - 1  5.44911062 5.062232e-08 1.822404e-06
-## 36     0.875 - 1  1.52257049 1.278662e-01 1.000000e+00
-```
-
-Woah! That's a big wall of stats! Let's write a little bit of code to pull out the significant relationships. Because I like Python, I'll do the pulling in Python, but first, some R to make things easier on the Python side. 
-
-```r
-exp1_1000_dt_comp <- exp1_1000_dt$res$Comparison
-exp1_1000_dt_padj <- exp1_1000_dt$res$P.adj
-exp1_1000_dt_z <- exp1_1000_dt$res$Z
-```
-Now, Python!
-
-```python
-# Combine all of the dunn test results into a more useful data structure.
-exp1_1000_dt_results = [{"comparison": r.exp1_1000_dt_comp[i], "p-value": r.exp1_1000_dt_padj[i], "z": r.exp1_1000_dt_z[i], "sig": r.exp1_1000_dt_padj[i] < r.sig_level} for i in range(0, len(r.exp1_1000_dt_comp))]
-```
-Here are the treatments with significant differences:
-
-```python
-for comp in exp1_1000_dt_results:
-  if comp["sig"]:
-    print(comp["comparison"])
-```
-
-```
-## 0.375 - 0.75
-## 0 - 0.875
-## 0.125 - 0.875
-## 0.25 - 0.875
-## 0.375 - 0.875
-## 0.5 - 0.875
-## 0.625 - 0.875
-## 0.75 - 0.875
-## 0 - 1
-## 0.125 - 1
-## 0.25 - 1
-## 0.375 - 1
-## 0.5 - 1
-## 0.625 - 1
-## 0.75 - 1
-```
-Here are all the treatments with no significant differences:
-
-```python
-for comp in exp1_1000_dt_results:
-  if not comp["sig"]:
-    print(comp["comparison"])
-```
-
-```
-## 0 - 0.125
-## 0 - 0.25
-## 0.125 - 0.25
-## 0 - 0.375
-## 0.125 - 0.375
-## 0.25 - 0.375
-## 0 - 0.5
-## 0.125 - 0.5
-## 0.25 - 0.5
-## 0.375 - 0.5
-## 0 - 0.625
-## 0.125 - 0.625
-## 0.25 - 0.625
-## 0.375 - 0.625
-## 0.5 - 0.625
-## 0 - 0.75
-## 0.125 - 0.75
-## 0.25 - 0.75
-## 0.5 - 0.75
-## 0.625 - 0.75
-## 0.875 - 1
+## 
+## 	Pairwise comparisons using Wilcoxon rank sum test 
+## 
+## data:  exp1_1000_data$fitness and exp1_1000_data$sim_thresh 
+## 
+##       0       0.125   0.25    0.375   0.5     0.625   0.75    0.875  
+## 0.125 1.0000  -       -       -       -       -       -       -      
+## 0.25  1.0000  1.0000  -       -       -       -       -       -      
+## 0.375 1.0000  1.0000  1.0000  -       -       -       -       -      
+## 0.5   1.0000  1.0000  1.0000  1.0000  -       -       -       -      
+## 0.625 1.0000  1.0000  1.0000  1.0000  1.0000  -       -       -      
+## 0.75  0.3559  0.0109  0.0956  0.0013  0.0654  0.2005  -       -      
+## 0.875 8.6e-10 7.6e-10 8.1e-10 5.2e-10 7.0e-10 7.6e-10 1.1e-09 -      
+## 1     8.6e-10 7.6e-10 8.1e-10 5.2e-10 7.0e-10 7.6e-10 1.1e-09 1.1e-09
+## 
+## P value adjustment method: bonferroni
 ```
 
 In general, the two treatments with the highest minimum similarity thresholds (87.5% and 100.0%) seem to be worse than the others, while (in general) there aren't real differences between the others. Let's move on to the end of the run. 
@@ -273,7 +163,7 @@ exp1_10000_data <- exp1_data[exp1_data$update == 10000,]
 
 **Visualize!**
 
-![](stats_files/figure-html/unnamed-chunk-17-1.png)<!-- -->
+![](stats_files/figure-html/unnamed-chunk-12-1.png)<!-- -->
 
 Exact name matching (100.0%) is still **bad**. Much worse than any other treatment. Everything else, except the 87.5% treatment solved the problem pretty much optimally in all replicates. 
 
@@ -292,128 +182,30 @@ exp1_10000_kt
 ## Kruskal-Wallis chi-squared = 221.72, df = 8, p-value < 2.2e-16
 ```
 
-As expected, the Kruskal-Wallis test comes out significant. Let's do a post-hoc Dunn's test to analyze which treatments are significantly different from one another. 
+As expected, the Kruskal-Wallis test comes out significant. Let's do a post-hoc pairwise Wilcoxon rank-sum test to analyze which treatments are significantly different from one another.
 
 ```r
-exp1_10000_dt <- dunnTest(fitness ~ sim_thresh, data=exp1_10000_data, method="bonferroni")
-exp1_10000_dt
+exp1_10000_wt <- pairwise.wilcox.test(x=exp1_10000_data$fitness, g=exp1_10000_data$sim_thresh, p.adjust.method="bonferroni", exact=FALSE)
+exp1_10000_wt
 ```
 
 ```
-## Dunn (1964) Kruskal-Wallis multiple comparison
-```
-
-```
-##   p-values adjusted with the Bonferroni method.
-```
-
-```
-##       Comparison         Z      P.unadj        P.adj
-## 1      0 - 0.125  0.283976 7.764288e-01 1.000000e+00
-## 2       0 - 0.25  0.000000 1.000000e+00 1.000000e+00
-## 3   0.125 - 0.25 -0.283976 7.764288e-01 1.000000e+00
-## 4      0 - 0.375  0.000000 1.000000e+00 1.000000e+00
-## 5  0.125 - 0.375 -0.283976 7.764288e-01 1.000000e+00
-## 6   0.25 - 0.375  0.000000 1.000000e+00 1.000000e+00
-## 7        0 - 0.5  0.000000 1.000000e+00 1.000000e+00
-## 8    0.125 - 0.5 -0.283976 7.764288e-01 1.000000e+00
-## 9     0.25 - 0.5  0.000000 1.000000e+00 1.000000e+00
-## 10   0.375 - 0.5  0.000000 1.000000e+00 1.000000e+00
-## 11     0 - 0.625  0.000000 1.000000e+00 1.000000e+00
-## 12 0.125 - 0.625 -0.283976 7.764288e-01 1.000000e+00
-## 13  0.25 - 0.625  0.000000 1.000000e+00 1.000000e+00
-## 14 0.375 - 0.625  0.000000 1.000000e+00 1.000000e+00
-## 15   0.5 - 0.625  0.000000 1.000000e+00 1.000000e+00
-## 16      0 - 0.75  0.000000 1.000000e+00 1.000000e+00
-## 17  0.125 - 0.75 -0.283976 7.764288e-01 1.000000e+00
-## 18   0.25 - 0.75  0.000000 1.000000e+00 1.000000e+00
-## 19  0.375 - 0.75  0.000000 1.000000e+00 1.000000e+00
-## 20    0.5 - 0.75  0.000000 1.000000e+00 1.000000e+00
-## 21  0.625 - 0.75  0.000000 1.000000e+00 1.000000e+00
-## 22     0 - 0.875  4.562548 5.053661e-06 1.819318e-04
-## 23 0.125 - 0.875  4.278572 1.880964e-05 6.771470e-04
-## 24  0.25 - 0.875  4.562548 5.053661e-06 1.819318e-04
-## 25 0.375 - 0.875  4.562548 5.053661e-06 1.819318e-04
-## 26   0.5 - 0.875  4.562548 5.053661e-06 1.819318e-04
-## 27 0.625 - 0.875  4.562548 5.053661e-06 1.819318e-04
-## 28  0.75 - 0.875  4.562548 5.053661e-06 1.819318e-04
-## 29         0 - 1 10.828951 2.510133e-27 9.036478e-26
-## 30     0.125 - 1 10.544975 5.358688e-26 1.929128e-24
-## 31      0.25 - 1 10.828951 2.510133e-27 9.036478e-26
-## 32     0.375 - 1 10.828951 2.510133e-27 9.036478e-26
-## 33       0.5 - 1 10.828951 2.510133e-27 9.036478e-26
-## 34     0.625 - 1 10.828951 2.510133e-27 9.036478e-26
-## 35      0.75 - 1 10.828951 2.510133e-27 9.036478e-26
-## 36     0.875 - 1  6.266404 3.694817e-10 1.330134e-08
-```
-
-Let's write a little bit of code to pull out the significant relationships. Again, some R code then some Python code.
-
-```r
-exp1_10000_dt_comp <- exp1_10000_dt$res$Comparison
-exp1_10000_dt_padj <- exp1_10000_dt$res$P.adj
-exp1_10000_dt_z <- exp1_10000_dt$res$Z
-```
-
-```python
-# Combine all of the dunn test results into a more useful data structure.
-exp1_10000_dt_results = [{"comparison": r.exp1_10000_dt_comp[i], "p-value": r.exp1_10000_dt_padj[i], "z": r.exp1_10000_dt_z[i], "sig": r.exp1_10000_dt_padj[i] < r.sig_level} for i in range(0, len(r.exp1_10000_dt_comp))]
-```
-Here are the treatments with significant differences: [TODO: make this a heatmap]
-
-```python
-for comp in exp1_10000_dt_results:
-  if comp["sig"]:
-    print(comp["comparison"])
-```
-
-```
-## 0 - 0.875
-## 0.125 - 0.875
-## 0.25 - 0.875
-## 0.375 - 0.875
-## 0.5 - 0.875
-## 0.625 - 0.875
-## 0.75 - 0.875
-## 0 - 1
-## 0.125 - 1
-## 0.25 - 1
-## 0.375 - 1
-## 0.5 - 1
-## 0.625 - 1
-## 0.75 - 1
-## 0.875 - 1
-```
-Here are all the treatments with no significant differences:
-
-```python
-for comp in exp1_10000_dt_results:
-  if not comp["sig"]:
-    print(comp["comparison"])
-```
-
-```
-## 0 - 0.125
-## 0 - 0.25
-## 0.125 - 0.25
-## 0 - 0.375
-## 0.125 - 0.375
-## 0.25 - 0.375
-## 0 - 0.5
-## 0.125 - 0.5
-## 0.25 - 0.5
-## 0.375 - 0.5
-## 0 - 0.625
-## 0.125 - 0.625
-## 0.25 - 0.625
-## 0.375 - 0.625
-## 0.5 - 0.625
-## 0 - 0.75
-## 0.125 - 0.75
-## 0.25 - 0.75
-## 0.375 - 0.75
-## 0.5 - 0.75
-## 0.625 - 0.75
+## 
+## 	Pairwise comparisons using Wilcoxon rank sum test 
+## 
+## data:  exp1_10000_data$fitness and exp1_10000_data$sim_thresh 
+## 
+##       0       0.125   0.25    0.375   0.5     0.625   0.75    0.875  
+## 0.125 1.00000 -       -       -       -       -       -       -      
+## 0.25  -       1.00000 -       -       -       -       -       -      
+## 0.375 -       1.00000 -       -       -       -       -       -      
+## 0.5   -       1.00000 -       -       -       -       -       -      
+## 0.625 -       1.00000 -       -       -       -       -       -      
+## 0.75  -       1.00000 -       -       -       -       -       -      
+## 0.875 0.00027 0.00079 0.00027 0.00027 0.00027 0.00027 0.00027 -      
+## 1     2.5e-11 3.6e-11 2.5e-11 2.5e-11 2.5e-11 2.5e-11 2.5e-11 4.4e-10
+## 
+## P value adjustment method: bonferroni
 ```
 
 These data support the idea that exact name matching is not very evolvable. In fact, requiring too much precision when calling an evolvable name (doing tag-based referencing) is not ideal. On the flip side, requiring _some_ precision for successful tag-based references is fine (_i.e._, 12.5% through 75% minimum thresholds are not significantly different than a 0.0% threshold). 
@@ -445,7 +237,7 @@ mape1_data <- mape_data[mape_data$distraction_sigs == 0,]
 ```
 
 **Visualize!**
-![](stats_files/figure-html/unnamed-chunk-26-1.png)<!-- -->
+![](stats_files/figure-html/unnamed-chunk-17-1.png)<!-- -->
 
 From this heat map, we can see that solutions exist at 16+ (looking directly at the data, the lowest functions used is \infty{}). Remember, that value is the average functions used over 100 trials. Because of environmental stochasticity, a few of that agent's trials likely didn't feature _all_ of the environments, which resulted in not all 16 necessary functions being called. Nonetheless, our MAP-Elites results are comfirming that programs need 16 functions to solve the problem, and it's hard to generate optimal solutions with a similarity threshold above 0.874657 (the maximum similarity threshold of all solutions represented in our heat map). 
 
@@ -478,7 +270,7 @@ exp2_1000_data <- exp2_data[exp2_data$update == 1000,]
 ```
 
 **Accio, visualization!** 
-![](stats_files/figure-html/unnamed-chunk-29-1.png)<!-- -->
+![](stats_files/figure-html/unnamed-chunk-20-1.png)<!-- -->
 
 Things are looking quite a bit different than in the first experiment with the vanilla changing environment problem! Exact name matching is still bad, but the 75% similarity threshold treatment seems to be doing better than all other treatments.
 
@@ -497,129 +289,33 @@ exp2_1000_kt
 ## Kruskal-Wallis chi-squared = 144.3, df = 8, p-value < 2.2e-16
 ```
 
-As expected, the Kruskal-Wallis test is significant. Next, let's do a post-hoc Dunn's test to analyze which treatments are statistically different. 
+
+As expected, the Kruskal-Wallis test comes out significant. Let's do a post-hoc pairwise Wilcoxon rank-sum test to analyze which treatments are significantly different from one another.
 
 ```r
-exp2_1000_dt <- dunnTest(fitness ~ sim_thresh, data=exp2_1000_data, method="bonferroni")
-exp2_1000_dt
+exp2_1000_wt <- pairwise.wilcox.test(x=exp2_1000_data$fitness, g=exp2_1000_data$sim_thresh, p.adjust.method="bonferroni", exact=FALSE)
+exp2_1000_wt
 ```
 
 ```
-## Dunn (1964) Kruskal-Wallis multiple comparison
+## 
+## 	Pairwise comparisons using Wilcoxon rank sum test 
+## 
+## data:  exp2_1000_data$fitness and exp2_1000_data$sim_thresh 
+## 
+##       0       0.125   0.25    0.375   0.5     0.625   0.75    0.875  
+## 0.125 1       -       -       -       -       -       -       -      
+## 0.25  1       1       -       -       -       -       -       -      
+## 0.375 1       1       1       -       -       -       -       -      
+## 0.5   1       1       1       1       -       -       -       -      
+## 0.625 1       1       1       1       1       -       -       -      
+## 0.75  1.1e-09 1.3e-09 1.1e-09 1.5e-09 1.2e-09 1.5e-09 -       -      
+## 0.875 1       1       1       1       1       1       3.3e-09 -      
+## 1     1.1e-09 1.1e-09 1.1e-09 1.1e-09 1.1e-09 1.1e-09 1.1e-09 1.6e-09
+## 
+## P value adjustment method: bonferroni
 ```
 
-```
-##   p-values adjusted with the Bonferroni method.
-```
-
-```
-##       Comparison           Z      P.unadj        P.adj
-## 1      0 - 0.125 -0.92927718 3.527455e-01 1.000000e+00
-## 2       0 - 0.25 -0.66210999 5.079007e-01 1.000000e+00
-## 3   0.125 - 0.25  0.26716719 7.893404e-01 1.000000e+00
-## 4      0 - 0.375 -0.90272640 3.666711e-01 1.000000e+00
-## 5  0.125 - 0.375  0.02655078 9.788180e-01 1.000000e+00
-## 6   0.25 - 0.375 -0.24061641 8.098524e-01 1.000000e+00
-## 7        0 - 0.5 -0.04812328 9.616180e-01 1.000000e+00
-## 8    0.125 - 0.5  0.88115389 3.782345e-01 1.000000e+00
-## 9     0.25 - 0.5  0.61398671 5.392241e-01 1.000000e+00
-## 10   0.375 - 0.5  0.85460312 3.927709e-01 1.000000e+00
-## 11     0 - 0.625 -1.09024126 2.756069e-01 1.000000e+00
-## 12 0.125 - 0.625 -0.16096408 8.721217e-01 1.000000e+00
-## 13  0.25 - 0.625 -0.42813127 6.685556e-01 1.000000e+00
-## 14 0.375 - 0.625 -0.18751486 8.512570e-01 1.000000e+00
-## 15   0.5 - 0.625 -1.04211798 2.973570e-01 1.000000e+00
-## 16      0 - 0.75 -6.63935354 3.150619e-11 1.134223e-09
-## 17  0.125 - 0.75 -5.71007636 1.129255e-08 4.065318e-07
-## 18   0.25 - 0.75 -5.97724355 2.269448e-09 8.170012e-08
-## 19  0.375 - 0.75 -5.73662714 9.658056e-09 3.476900e-07
-## 20    0.5 - 0.75 -6.59123025 4.361968e-11 1.570308e-09
-## 21  0.625 - 0.75 -5.54911228 2.871237e-08 1.033645e-06
-## 22     0 - 0.875 -1.42392250 1.544689e-01 1.000000e+00
-## 23 0.125 - 0.875 -0.50255421 6.152777e-01 1.000000e+00
-## 24  0.25 - 0.875 -0.76744759 4.428154e-01 1.000000e+00
-## 25 0.375 - 0.875 -0.52887901 5.968894e-01 1.000000e+00
-## 26   0.5 - 0.875 -1.37620878 1.687570e-01 1.000000e+00
-## 27 0.625 - 0.875 -0.34296006 7.316285e-01 1.000000e+00
-## 28  0.75 - 0.875  5.15892488 2.483719e-07 8.941390e-06
-## 29         0 - 1  5.23216238 1.675385e-07 6.031385e-06
-## 30     0.125 - 1  6.16143956 7.208658e-10 2.595117e-08
-## 31      0.25 - 1  5.89427237 3.763360e-09 1.354810e-07
-## 32     0.375 - 1  6.13488878 8.521879e-10 3.067876e-08
-## 33       0.5 - 1  5.28028567 1.289826e-07 4.643375e-06
-## 34     0.625 - 1  6.32240364 2.575256e-10 9.270922e-09
-## 35      0.75 - 1 11.87151592 1.664244e-32 5.991277e-31
-## 36     0.875 - 1  6.61155503 3.803037e-11 1.369093e-09
-```
-As before, let's write some R/Python code to pull out significant vs. not significant relationships. 
-
-```r
-exp2_1000_dt_comp <- exp2_1000_dt$res$Comparison
-exp2_1000_dt_padj <- exp2_1000_dt$res$P.adj
-exp2_1000_dt_z <- exp2_1000_dt$res$Z
-```
-
-```python
-# Combine all the dunn test results into a useful python data structure.
-exp2_1000_dt_results = [{"comparison": r.exp2_1000_dt_comp[i], "p-value": r.exp2_1000_dt_padj[i], "z": r.exp2_1000_dt_z[i], "sig": r.exp2_1000_dt_padj[i] < r.sig_level} for i in range(0, len(r.exp2_1000_dt_comp))]
-```
-Treatments with significant differences:
-
-```python
-for comp in exp2_1000_dt_results:
-  if comp["sig"]:
-    print(comp["comparison"])
-```
-
-```
-## 0 - 0.75
-## 0.125 - 0.75
-## 0.25 - 0.75
-## 0.375 - 0.75
-## 0.5 - 0.75
-## 0.625 - 0.75
-## 0.75 - 0.875
-## 0 - 1
-## 0.125 - 1
-## 0.25 - 1
-## 0.375 - 1
-## 0.5 - 1
-## 0.625 - 1
-## 0.75 - 1
-## 0.875 - 1
-```
-
-Treatments that are not significantly different:
-
-```python
-for comp in exp2_1000_dt_results:
-  if not comp["sig"]:
-    print(comp["comparison"])
-```
-
-```
-## 0 - 0.125
-## 0 - 0.25
-## 0.125 - 0.25
-## 0 - 0.375
-## 0.125 - 0.375
-## 0.25 - 0.375
-## 0 - 0.5
-## 0.125 - 0.5
-## 0.25 - 0.5
-## 0.375 - 0.5
-## 0 - 0.625
-## 0.125 - 0.625
-## 0.25 - 0.625
-## 0.375 - 0.625
-## 0.5 - 0.625
-## 0 - 0.875
-## 0.125 - 0.875
-## 0.25 - 0.875
-## 0.375 - 0.875
-## 0.5 - 0.875
-## 0.625 - 0.875
-```
 
 In general, the 75% treatment is significantly better than all other treatments, and the 100.0% (exact matching) treatment is significantly worse than all other treatments. 
 
@@ -631,7 +327,7 @@ exp2_10000_data <- exp2_data[exp2_data$update == 10000,]
 ```
 
 **Lumos, results!**
-![](stats_files/figure-html/unnamed-chunk-37-1.png)<!-- -->
+![](stats_files/figure-html/unnamed-chunk-24-1.png)<!-- -->
 
 Only the 75% and 87.5% treatments produce any optimal solutions. Exact name matching is _still_ bad. Before we get too much further, I want to put this out there: these particular results (i.e. which treatments are able to produce optimal solutions) are entirely dependent on how I am representing tags, the number of environment states, and the number of distraction signals. My point here is a more general one: sometimes _some_ precision is important! The amount of necessary precision will vary problem to problem. 
 
@@ -650,129 +346,31 @@ exp2_10000_kt
 ## Kruskal-Wallis chi-squared = 193, df = 8, p-value < 2.2e-16
 ```
 
-As expected from looking at the visualiztion, the Kruskal-Wallis test is significant. Next let's do a post-hoc Dunn's test to analyze which treatments are different. 
+
+As expected, the Kruskal-Wallis test comes out significant. Let's do a post-hoc pairwise Wilcoxon rank-sum test to analyze which treatments are significantly different from one another.
 
 ```r
-exp2_10000_dt <- dunnTest(fitness ~ sim_thresh, data=exp2_10000_data, method="bonferroni")
-exp2_10000_dt
+exp2_10000_wt <- pairwise.wilcox.test(x=exp2_10000_data$fitness, g=exp2_10000_data$sim_thresh, p.adjust.method="bonferroni", exact=FALSE)
+exp2_10000_wt
 ```
 
 ```
-## Dunn (1964) Kruskal-Wallis multiple comparison
-```
-
-```
-##   p-values adjusted with the Bonferroni method.
-```
-
-```
-##       Comparison           Z      P.unadj        P.adj
-## 1      0 - 0.125 -0.73882920 4.600107e-01 1.000000e+00
-## 2       0 - 0.25  0.26926958 7.877222e-01 1.000000e+00
-## 3   0.125 - 0.25  1.00809878 3.134070e-01 1.000000e+00
-## 4      0 - 0.375 -0.08393898 9.331050e-01 1.000000e+00
-## 5  0.125 - 0.375  0.65489022 5.125384e-01 1.000000e+00
-## 6   0.25 - 0.375 -0.35320856 7.239321e-01 1.000000e+00
-## 7        0 - 0.5  0.34074237 7.332975e-01 1.000000e+00
-## 8    0.125 - 0.5  1.07957157 2.803330e-01 1.000000e+00
-## 9     0.25 - 0.5  0.07147279 9.430215e-01 1.000000e+00
-## 10   0.375 - 0.5  0.42468135 6.710690e-01 1.000000e+00
-## 11     0 - 0.625 -1.89652219 5.789103e-02 1.000000e+00
-## 12 0.125 - 0.625 -1.15769299 2.469893e-01 1.000000e+00
-## 13  0.25 - 0.625 -2.16579178 3.032710e-02 1.000000e+00
-## 14 0.375 - 0.625 -1.81258322 6.989613e-02 1.000000e+00
-## 15   0.5 - 0.625 -2.23726457 2.526905e-02 9.096859e-01
-## 16      0 - 0.75 -6.78243541 1.181667e-11 4.254001e-10
-## 17  0.125 - 0.75 -6.04360621 1.507071e-09 5.425455e-08
-## 18   0.25 - 0.75 -7.05170500 1.767386e-12 6.362590e-11
-## 19  0.375 - 0.75 -6.69849644 2.105749e-11 7.580695e-10
-## 20    0.5 - 0.75 -7.12317779 1.054666e-12 3.796799e-11
-## 21  0.625 - 0.75 -4.88591322 1.029505e-06 3.706219e-05
-## 22     0 - 0.875 -5.75891986 8.465388e-09 3.047540e-07
-## 23 0.125 - 0.875 -5.02637868 4.998284e-07 1.799382e-05
-## 24  0.25 - 0.875 -6.02589774 1.681735e-09 6.054246e-08
-## 25 0.375 - 0.875 -5.67569527 1.381265e-08 4.972553e-07
-## 26   0.5 - 0.875 -6.09676224 1.082383e-09 3.896579e-08
-## 27 0.625 - 0.875 -3.87853857 1.050859e-04 3.783091e-03
-## 28  0.75 - 0.875  0.96579165 3.341484e-01 1.000000e+00
-## 29         0 - 1  4.88591322 1.029505e-06 3.706219e-05
-## 30     0.125 - 1  5.62474242 1.857850e-08 6.688259e-07
-## 31      0.25 - 1  4.61664364 3.899961e-06 1.403986e-04
-## 32     0.375 - 1  4.96985219 6.700396e-07 2.412143e-05
-## 33       0.5 - 1  4.54517085 5.489071e-06 1.976066e-04
-## 34     0.625 - 1  6.78243541 1.181667e-11 4.254001e-10
-## 35      0.75 - 1 11.66834863 1.849790e-31 6.659244e-30
-## 36     0.875 - 1 10.60325008 2.878011e-26 1.036084e-24
-```
-
-Again, some Python/R code to pull out significantly different treatments.
-
-```r
-exp2_10000_dt_comp <- exp2_10000_dt$res$Comparison
-exp2_10000_dt_padj <- exp2_10000_dt$res$P.adj
-exp2_10000_dt_z <- exp2_10000_dt$res$Z
-```
-
-```python
-# Combine all the dunn test results into a useful python data structure.
-exp2_10000_dt_results = [{"comparison": r.exp2_10000_dt_comp[i], "p-value": r.exp2_10000_dt_padj[i], "z": r.exp2_10000_dt_z[i], "sig": r.exp2_10000_dt_padj[i] < r.sig_level} for i in range(0, len(r.exp2_10000_dt_comp))]
-```
-Treatments with significant differences:
-
-```python
-for comp in exp2_10000_dt_results:
-  if comp["sig"]:
-    print(comp["comparison"])
-```
-
-```
-## 0 - 0.75
-## 0.125 - 0.75
-## 0.25 - 0.75
-## 0.375 - 0.75
-## 0.5 - 0.75
-## 0.625 - 0.75
-## 0 - 0.875
-## 0.125 - 0.875
-## 0.25 - 0.875
-## 0.375 - 0.875
-## 0.5 - 0.875
-## 0.625 - 0.875
-## 0 - 1
-## 0.125 - 1
-## 0.25 - 1
-## 0.375 - 1
-## 0.5 - 1
-## 0.625 - 1
-## 0.75 - 1
-## 0.875 - 1
-```
-
-Treatments that are not significantly different:
-
-```python
-for comp in exp2_10000_dt_results:
-  if not comp["sig"]:
-    print(comp["comparison"])
-```
-
-```
-## 0 - 0.125
-## 0 - 0.25
-## 0.125 - 0.25
-## 0 - 0.375
-## 0.125 - 0.375
-## 0.25 - 0.375
-## 0 - 0.5
-## 0.125 - 0.5
-## 0.25 - 0.5
-## 0.375 - 0.5
-## 0 - 0.625
-## 0.125 - 0.625
-## 0.25 - 0.625
-## 0.375 - 0.625
-## 0.5 - 0.625
-## 0.75 - 0.875
+## 
+## 	Pairwise comparisons using Wilcoxon rank sum test 
+## 
+## data:  exp2_10000_data$fitness and exp2_10000_data$sim_thresh 
+## 
+##       0       0.125   0.25    0.375   0.5     0.625   0.75    0.875  
+## 0.125 1.000   -       -       -       -       -       -       -      
+## 0.25  1.000   1.000   -       -       -       -       -       -      
+## 0.375 1.000   1.000   1.000   -       -       -       -       -      
+## 0.5   1.000   1.000   1.000   1.000   -       -       -       -      
+## 0.625 0.240   1.000   0.072   0.183   0.065   -       -       -      
+## 0.75  4.4e-11 4.4e-11 4.4e-11 4.4e-11 4.4e-11 4.4e-11 -       -      
+## 0.875 1.4e-09 1.4e-09 1.4e-09 1.4e-09 1.4e-09 2.7e-09 7.2e-06 -      
+## 1     1.1e-09 1.1e-09 1.1e-09 1.1e-09 1.1e-09 1.1e-09 4.4e-11 1.4e-09
+## 
+## P value adjustment method: bonferroni
 ```
 
 The statistical results confirm what we were seeing in the box plot. The 75% treatment and 87.5% treatment produce significantly better performing agents than all other treatments, and exact name matching is still terrible. In fact, only 75% and 87.5% treatments produced _any_ optimal programs. 
@@ -817,7 +415,7 @@ with sns.axes_style("white"):
 plt.show()
 ```
 
-![](stats_files/figure-html/unnamed-chunk-45-1.png)<!-- -->
+![](stats_files/figure-html/unnamed-chunk-28-1.png)<!-- -->
 
 This heatmap is very neat. It confirms our intuitions about the solution space in the distracting environment problem, showing that many strategies exist with around 32 functions where dummy do-nothing functions can consume distraction signals. There are solutions that use only 16 functions, but they exist only at high minimum similarity thresholds. And, there are a number of solutions that use a combination of extra do-nothing functions and referencing precision to successfully ignore distraction signals. 
 
